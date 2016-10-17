@@ -8,6 +8,7 @@ rm(list = ls())
 script_name <- "flu_data"
 
 # libraries
+library(tidyverse)
 library(cdcfluview)
 library(stringr)
 

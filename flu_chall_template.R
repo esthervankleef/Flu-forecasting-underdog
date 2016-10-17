@@ -17,11 +17,11 @@ library(caret)
 
 ########################################
 #### laod the data
-load("../Data/flu_data.Rda")
+load("./Data/data_manip.Rda")
 # select input variables
-DF  <- usflu
+DF <- usflu
 DF <- DF %>% 
-        dplyr::select(-region)
+        dplyr::select(-region,-region.type)
 # only keep DF
 rm(usflu)
 
@@ -60,7 +60,7 @@ for (pred.tpoint in first.predict:last.prediction){
         
         # fit the model on log transformed data
         wks_ahead_arim <- 8
-        model <- arima(DF$total_cases[1:pred.tpoint], order=c(1,0,0),
+        model <- arima(DF$cases[1:pred.tpoint], order=c(1,0,0),
                        seasonal=list(order=c(1,0,0),period=52))
         
         # forecast with ARIMA
