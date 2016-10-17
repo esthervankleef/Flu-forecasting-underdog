@@ -6,7 +6,7 @@
 
 # empty workspace
 rm(list = ls())
-filename <- "flu_chall_template"
+script_name <- "flu_chall_template"
 
 # libraries
 library(tidyverse)
