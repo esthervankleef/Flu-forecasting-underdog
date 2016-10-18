@@ -43,7 +43,7 @@ usflu <- usflu %>%
                total.patients = as.numeric(total.patients))
 # add output variable: ilitotal/total.patients
 usflu <- usflu %>% 
-  mutate(cases = ilitotal/total.patients)
+  mutate(cases = 100*ilitotal/total.patients)
 
 ###################################
 #### save
