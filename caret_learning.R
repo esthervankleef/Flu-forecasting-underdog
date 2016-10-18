@@ -6,15 +6,13 @@
 
 # empty workspace
 rm(list = ls())
-script_name <- "experimental_Rene"
+script_name <- "caret_learning"
 
 # libraries
 library(tidyverse)
 library(lubridate)
 library(forecast)
-library(randomForest)
 library(caret)
-library(ggplot2)
 
 ########################################
 #### essential stuff
@@ -25,18 +23,6 @@ DF <- DF %>%
   dplyr::select(-region,-region.type)
 # only keep DF
 rm(usflu)
-
-########################################
-#### look at the data
-names(DF)
-plot(cases,pch=20)
-# make time series
-my.ys <- ts(cases,frequency=52, start=c(1997,40))
-# decompose the time series
-my.stl <- stats::stl(my.ys, s.window="periodic",na.action = na.approx)
-#my.stl <- decompose(my.ys) # i think stl() is better than decompose(), the latter does not give the bars to compare the compotents
-plot(my.stl)
-
 
 # timepoints
 train.set <- 100
@@ -50,7 +36,7 @@ last.miss.val <- missing.vals[length(missing.vals)]
 #
 DF1 <- DF[(last.miss.val + 1):last.prediction,]
 # attach the Dataframe
-attach(DF1)
+#attach(DF1)
 #
 
 ### Visualisation with caret
@@ -58,42 +44,46 @@ dev.off()
 #
 library(AppliedPredictiveModeling)
 transparentTheme(trans = .4)
+
+# span: controls the smoothness of the smoother
 featurePlot(x = DF1$week,
             y = DF1$cases,
-            plot="scatter")
+            plot="scatter",
+            type = c("p", "smooth"),
+            span = .5,
+            layout = c(1,1))
 
+# split into training and test data
+end.timeline <- dim(DF1)[1]
+train.size <- 600
 
-####
+my.lag <- 4
+# add lag to cases
+# and have change in cases
+DF1$ lag(DF1$week,my.lag)
+lag(DF1$cases,my.lag)
+DF1$cases
+# make train and test data.frame
+trainDF <- DF1[1:train.size,]
+testDF <- DF1[(train.size + 1):end.timeline,]
+
 #
-fitControl <- trainControl(
-  method = "repeatedcv",
-  number = 10,
-  repeats = 1
-)
+
+
 #
-rf_model <- caret::train(x=DF1$week, y=DF1$cases, method="rf",trcontrol=fitControl)
-
-
-#######################################################
-##### ML regression
-# time slice cross validation
-history <-  train.set
-initial.window <-  80
-train.control <-  trainControl(
-  method="timeslice",
-  initialWindow=initial.window,
-  horizon=history-initial.window,
-  fixedWindow=T)
-
-X = data.frame(week=week[1:train.set],row.names = NULL)
-rownames(X) <- NULL
+fitControl <- trainControl(method = "timeslice",
+                           initialWindow = 104,
+                           horizon = 10,
+                           fixedWindow = TRUE)
 #
-fitControl <- trainControl(method="repeatedcv",number=10,repeats=10)
-# train a random forest
-Y = cases[1:train.set]
-rf_model <- caret::train(x=X, y=Y, method="rf",na.action = na.pass)
+Fit1 <- train(x = trainDF[,c("year","week")], y = trainDF$cases, 
+                 method = "rf", 
+                 trControl = fitControl,
+                 verbose = TRUE,
+              tuneGrid = NULL, 
+              tuneLength = 3)
 
-# predict with random forest
+
 
 
 
