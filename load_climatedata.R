@@ -4,9 +4,12 @@
 rm(list=ls())
 library(RCurl)
 
-ftp.root <- "ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily"
-folder.root <- "~/Documents/Flu-forecasting-underdog/Data"
+ftp.root <- "ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/daily/"
+folder.root <- "~/Documents/Esther/Projects/Flu-forecasting-underdog/Data"
 
+# Have to make sure to be logged in at https://www.ncdc.noaa.gov/atrac/index.html
+# Username: esther.van.kleef@gmail.com
+# Password: London11
 
 #=====================================================================
 #   Function that downloads files from URL
