@@ -32,4 +32,4 @@ flu_text_corpus <- tm_map(flu_text_corpus,
 flu_text_corpus <- tm_map(flu_text_corpus, content_transformer(tolower), mc.cores=1)
 flu_text_corpus <- tm_map(flu_text_corpus, removePunctuation, mc.cores=1)
 flu_text_corpus <- tm_map(flu_text_corpus, function(x)removeWords(x,stopwords()), mc.cores=1)
-wordcloud(flu_text_corpus) # Takes quite long to run
+wordcloud(flu_text_corpus,scale = c(4, 0.35)) 
