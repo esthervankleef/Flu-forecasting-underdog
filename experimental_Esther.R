@@ -11,8 +11,9 @@ script_name <- "experimental_Esther"
 # libraries
 library(tidyverse);library(lubridate);library(forecast)
 library(xts);library(glmnet);library(MASS)
+
 ########################################
-### preamble
+### Preamble
 ########################################
 
 load("./Data/data_manip.Rda")
@@ -46,9 +47,6 @@ last.miss.val <- missing.vals[length(missing.vals)]
 
 DF1 <- DF[(last.miss.val + 1):last.prediction,]
 
-# attach dataframe
-attach(DF1)
-
 # Check distribution of weekly cases
 par(mfrow=c(1,2))
 ln = fitdistr(log(cases+1),"lognormal")
@@ -56,26 +54,36 @@ hist(cases, main = "Distribution cases", xlab="Weekly cases",freq=F);hist(log(ca
 lines(density(rlnorm(10000, meanlog=ln$estimate[1], sdlog=ln$estimate[2])), col="red") 
 # Log normal seems to be reasonable assumption; could also try to fit negative binomial/poisson
 
+
+DF1$log.cases <- log(DF1$cases + 1)
+ts.cases = ts(DF1$cases,frequency=52, start=c(1997,40))
+
+my.lag = 4
+DF1$log.lag4 = lag(DF1$log.cases,my.lag)
+
+DF1 = DF1[!is.na(DF1$log.lag4),]
+# attach dataframe
+attach(DF1)
 ########################################
 # Train model
 ########################################
 # log transform data
 log.cases <- log(cases + 1)
 ts.cases = ts(cases,frequency=52, start=c(1997,40))
-# limit data to data available at train.time
-log.cases <- log.cases[1:train.set]
-train.data <- DF1[1:train.set,]
 
 my.lag = 4
 
+# limit data to data available at train.time
+log.cases <- log.cases[1:train.set]
+
 # Fit simple model with lag 4 and week as factor
-xreg = as.matrix(cbind(lag1=lag(log.cases,my.lag)[(1 + my.lag):train.set],week=factor(week[(1 + my.lag):train.set])))
+xreg <- as.matrix(cbind(lag4=log.lag4[1:train.set],week=factor(week)[1:train.set]))
 
 # # fit simple linear regression
 # lm0 = lm(log.cases[(1 + my.lag):train.set]~xreg[,1]+xreg[,2])
 
 # fit LASSO regression
-fit0 = glmnet(y=log.cases[(1 + my.lag):train.set],x=xreg, family="gaussian")
+fit0 = glmnet(y=log.cases[(1 + my.lag):train.set],x=xreg[(1 + my.lag):train.set,], family="gaussian")
 
 # capture model fit LASSO for plotting
 model.fit0 <- predict.glmnet(fit0, s=0.01,newx=xreg[1:(train.set - my.lag),], type="response")
@@ -90,9 +98,26 @@ model.fit0 <- data_frame(
     upr95.pred = exp(pred + qnorm(0.975) * se) - 1
   )
 
+# Forecast
+forecast.wks.ahead <- my.lag
+forecast <- predict(fit0, n.ahead=forecast.wks.ahead,s=0.01, 
+                    newx=xreg[train.set - my.lag + 1:forecast.wks.ahead,])
+
+### calculate mean predictions and 95% CIs
+forecast <- as.data.frame(forecast) 
+names(forecast) = "pred"
+forecast <- forecast %>% mutate(se = sd(pred),
+    t.idx = train.set + 1:forecast.wks.ahead,
+    point.pred = exp(pred) - 1,
+    lwr95.pred = exp(pred - qnorm(0.975) * se) - 1,
+    upr95.pred = exp(pred + qnorm(0.975) * se) - 1
+  )
+forecast # Not extracting the se correct from forecasting
 
 par(mfrow=c(1,1))
-plot(model.fit0$t.idx[1:max(model.fit0$t.idx)], cases[1:max(model.fit0$t.idx)], 
+
+t.idx = 1:train.set
+plot(t.idx[1:(max(model.fit0$t.idx)+length(forecast$t.idx))], cases[1:(max(model.fit0$t.idx)+length(forecast$t.idx))], 
      pch=19, cex=0.25,
      xlab="Time", ylab="cases", main="Fit LASSO lag 4 weeks + Seasonality (no forecast)")
 polygon(x=c(model.fit0$t.idx, rev(model.fit0$t.idx)),
@@ -100,4 +125,9 @@ polygon(x=c(model.fit0$t.idx, rev(model.fit0$t.idx)),
         col=adjustcolor('darkblue', 0.25), border=F)
 lines(model.fit0$t.idx, model.fit0$point.pred, 
       col=adjustcolor('darkblue', 0.5), lwd=3)
+polygon(x=c(forecast$t.idx, rev(forecast$t.idx)),
+        y=c(forecast$upr95.pred, rev(forecast$lwr95.pred)), 
+        col=adjustcolor('darkred', 0.25), border=F)
+lines(forecast$t.idx, forecast$point.pred, 
+      col=adjustcolor('darkred', 0.5), lwd=3)
 
