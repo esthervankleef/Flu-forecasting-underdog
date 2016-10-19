@@ -25,22 +25,43 @@ DF <- DF %>%
 # only keep DF
 rm(usflu)
 
-#######################################################
-##### set timepoints, create evalution and output files
-# timepoints
-burn.in <- 8
-first.predict <- burn.in + 1
+### get rid of missing data by truncating
+missing.vals <- which(is.na(DF$cases))
+#
+last.miss.val <- missing.vals[length(missing.vals)]
+#
 last.prediction <- dim(DF)[1] 
-# initiate outputfile
-num.of.pred <- (last.prediction - first.predict) + 1
+DF1 <- DF[(last.miss.val + 1):last.prediction,]
+
+### mutate variables: derivatives and lags
+# make derivatives
+DF1$dcases <- c(NA,diff(DF1$cases))
+#DF1$ddcases <- c(NA,diff(DF1$dcases)) # don't need now
+# create different lags
+end.timeline <- dim(DF1)[1]
+# the predictor with shortest lag gives the timepoint_reference
+#
+# lag of 4
+DF1$timepoint_reference <- lag(seq_along(DF1$cases), n = 4)[1 : end.timeline] 
+DF1$cases_l4 <- lag(DF1$cases, n = 4)[1 : end.timeline]
+DF1$dcases_l4 <- lag(DF1$dcases, n = 4)[1 : end.timeline]
+# lag of 5
+DF1$cases_l5 <- lag(DF1$cases,n = 5)[1 : end.timeline]
+DF1$dcases_l5 <- lag(DF1$dcases,n = 5)[1 : end.timeline]
+# truncate the NA-tail
+biggest_lag <- 5 # a lag of 5 produces 5 NAs
+highest_d <- 2 # a second derivative produces 2 NAs
+DF2 <- DF1[(biggest_lag + 1 + highest_d):end.timeline,] 
+
+# decide the points from where to make first.prediction and last.prediction
+first.prediction <- 600
+last.prediction <- DF2$timepoint_reference[dim(DF2)[1]]
+
+### initiate outputfile
+num.of.pred <- (last.prediction - first.prediction) + 1
 model.evaluation <- matrix(0, nrow = 2,ncol = num.of.pred)
-outputfile <- data.frame(season = as.character("Season"),
-                         week = 1:(num.of.pred*2),
-                         target = as.character("Season"),
-                         mean = 1,
-                         se = 1)
-outputfile$season <- as.character(outputfile$season)
-outputfile$target <- as.character(outputfile$target)
+#
+FAO <- data.frame(timepoint_reference = first.prediction:last.prediction)
 
 #######################################################
 # log transform data
@@ -48,63 +69,82 @@ outputfile$target <- as.character(outputfile$target)
 
 #######################################################
 #### start the prediction loop
+DF <- DF2 # use DF in the loop
 i <- 0
-for (pred.tpoint in first.predict:last.prediction){
+for (pred.tpoint in first.prediction:last.prediction){
         i = i + 1
         print(i) # show where you are in the loop
         
         ###############################################
         ################# model fitting
+        # example: RF
         
+        # make train data
+        df_point <- which(DF$timepoint_reference == pred.tpoint)
+        trainDF <- DF[1:df_point,]
+        # create fit control 
+        # timeslices for timeseries
+        fitControl <- trainControl(method = "timeslice",
+                                   initialWindow = 104,
+                                   horizon = 10,
+                                   fixedWindow = TRUE)
+        # input for the forest
+        my_input <- c("week","cases_l4","dcases_l4",
+                      "cases_l5","dcases_l5")
+        # train model
+        Fit1 <- train(x = trainDF[,my_input], y = trainDF$cases, 
+                      method = "rf", 
+                      trControl = fitControl,
+                      verbose = TRUE,
+                      tuneGrid = NULL, 
+                      tuneLength = 3)
+        ############################
+        ### forecast: no longer than the shortest lag!
+        rf_predictions <- predict(Fit1,DF[df_point+1:4,]) # point predictions
+        
+        ##################################################
         # example: ARIMA
         
-        # fit the model on log transformed data
-        wks_ahead_arim <- 8
-        model <- arima(DF$cases[1:pred.tpoint], order=c(1,0,0),
-                       seasonal=list(order=c(1,0,0),period=52))
+        # fit model
+        Fit2 <- Arima(trainDF$cases, order=c(1,0,0),
+                       seasonal=list(order=c(1,0,0),period=52), lambda = 1)
+        ##############################
+        ### forecast
+        wks_ahead_arim <- 4
+        ar_predictions <- forecast.Arima(Fit2,4)
         
-        # forecast with ARIMA
-        # WARNING - do not forecast longer than your lag
-        forecast.wks.ahead <- 4
-        forecast <- predict(model,n.ahead = wks_ahead_arim)
-        # calculate mean prediction and se
-        forecast <- as.data.frame(forecast) %>%
-                mutate(
-                        t.idx = pred.tpoint + 1:wks_ahead_arim,
-                        point.pred = exp(pred) - 1,
-                        lwr95.pred = exp(pred - qnorm(0.975) * se) - 1,
-                        upr95.pred = exp(pred + qnorm(0.975) * se) - 1
-                )
-        # arimas for temp and rain
-        model_temp <- arima(DF$air_temperature[1:pred.tpoint], order=c(1,0,0),
-                            seasonal=list(order=c(1,0,0),period=52))
-        model_rain <- arima(DF$rain_amount[1:pred.tpoint], order=c(1,0,0),
-                            seasonal=list(order=c(1,0,0),period=52))
-        
-        # example: random forest
         
         ### combine forecaste
         # set weight of model to combine
-        #
-        # make 4 weeks forecast
-        #
-        # Save into output 
-        #
+        weightfor_rf <- 1
+        final_predict <- weightfor_rf*rf_predictions + 
+          (1-weightfor_rf)*as.numeric(ar_predictions$mean)
+        # actual values
+        observed <- DF$cases[df_point+1:4]
         
-        ####evaluate your models (diff metrices)
-        # compare with actual value
-        #
+        # save 1 weeks forecast and observed
+        FAO$f1w[i] <- final_predict[1]
+        FAO$o1w[i] <- observed[1]
+        # save 2 weeks forecast and observed
+        FAO$f2w[i] <- final_predict[2]
+        FAO$o2w[i] <- observed[2]
+        # save 3 weeks forecast and observed
+        FAO$f3w[i] <- final_predict[3]
+        FAO$o3w[i] <- observed[3]
+        # save 4 weeks forecast and observed
+        FAO$f4w[i] <- final_predict[4]
+        FAO$o4w[i] <- observed[4]
+        
+        ####evaluate models
+        ###
 } ####### end of loop
 
 #####################################################
-# calculate the mean prediction error over all predictiona
-mean.eval <- vector("numeric",2)
-for (i in 1:2){
-        mean.eval[i] <-  mean(model.evaluation[i,],na.rm = TRUE)  
-}
+# plot
+#plot(FAO)
 
 ########################################
 #### saving
-savename <- paste0("./Data/", filename, ".Rda")
-save(mean.eval,file = savename)
-write.csv(outputfile,file="./Data/DARIMA_forecastsRF_11.csv",row.names = FALSE)
+savename <- paste0("./Data/", script_name, ".Rda")
+save(FAO,file = savename)
+#write.csv(outputfile,file="./Data/DARIMA_forecastsRF_11.csv",row.names = FALSE)
