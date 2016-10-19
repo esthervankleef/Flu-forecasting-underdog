@@ -37,6 +37,7 @@ my.stl <- stl(my.ys, s.window="periodic",na.action = na.approx)
 plot(my.stl)
 
 # timepoints
+t.idx <- 1:(52*10+2)
 train.set <- 52*5+2 # 5 years of training data
 first.predict <- train.set + 1
 last.prediction <- dim(DF)[1] 
@@ -55,13 +56,13 @@ lines(density(rlnorm(10000, meanlog=ln$estimate[1], sdlog=ln$estimate[2])), col=
 # Log normal seems to be reasonable assumption; could also try to fit negative binomial/poisson
 
 
-DF1$log.cases <- log(DF1$cases + 1)
+# DF1$log.cases <- log(DF1$cases + 1)
 ts.cases = ts(DF1$cases,frequency=52, start=c(1997,40))
 
-my.lag = 4
-DF1$log.lag4 = lag(DF1$log.cases,my.lag)
-
-DF1 = DF1[!is.na(DF1$log.lag4),]
+# my.lag = 4
+# DF1$log.lag4 = lag(DF1$log.cases,my.lag)
+# 
+# DF1 = DF1[!is.na(DF1$log.lag4),]
 # attach dataframe
 attach(DF1)
 ########################################
@@ -69,7 +70,6 @@ attach(DF1)
 ########################################
 # log transform data
 log.cases <- log(cases + 1)
-ts.cases = ts(cases,frequency=52, start=c(1997,40))
 
 my.lag = 4
 
@@ -77,13 +77,13 @@ my.lag = 4
 log.cases <- log.cases[1:train.set]
 
 # Fit simple model with lag 4 and week as factor
-xreg <- as.matrix(cbind(lag4=log.lag4[1:train.set],week=factor(week)[1:train.set]))
+xreg <- as.matrix(cbind(lag4=log.cases[1:train.set],week=factor(week)[1:train.set]))
 
 # # fit simple linear regression
 # lm0 = lm(log.cases[(1 + my.lag):train.set]~xreg[,1]+xreg[,2])
 
 # fit LASSO regression
-fit0 = glmnet(y=log.cases[(1 + my.lag):train.set],x=xreg[(1 + my.lag):train.set,], family="gaussian")
+fit0 = glmnet(y=log.cases[(1 + my.lag):train.set],x=xreg[1:(train.set - my.lag),], family="gaussian")
 
 # capture model fit LASSO for plotting
 model.fit0 <- predict.glmnet(fit0, s=0.01,newx=xreg[1:(train.set - my.lag),], type="response")
@@ -116,10 +116,9 @@ forecast # Not extracting the se correct from forecasting
 
 par(mfrow=c(1,1))
 
-t.idx = 1:train.set
-plot(t.idx[1:(max(model.fit0$t.idx)+length(forecast$t.idx))], cases[1:(max(model.fit0$t.idx)+length(forecast$t.idx))], 
+plot(t.idx[1:max(forecast$t.idx)], cases[1:max(forecast$t.idx)], 
      pch=19, cex=0.25,
-     xlab="Time", ylab="cases", main="Fit LASSO lag 4 weeks + Seasonality (no forecast)")
+     xlab="date", ylab="cases")
 polygon(x=c(model.fit0$t.idx, rev(model.fit0$t.idx)),
         y=c(model.fit0$upr95.pred, rev(model.fit0$lwr95.pred)), 
         col=adjustcolor('darkblue', 0.25), border=F)
