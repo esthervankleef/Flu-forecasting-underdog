@@ -82,11 +82,11 @@ xreg <- as.matrix(cbind(lag4=log.cases[1:train.set],week=factor(week+my.lag)[1:t
 fit0 = glmnet(y=log.cases[(1 + my.lag):train.set],x=xreg[1:(train.set - my.lag),], family="gaussian")
 
 # capture model fit LASSO for plotting
-model.fit0 <- predict.glmnet(fit0, s=0.01,newx=xreg[1:(train.set - my.lag),], type="response")
+model.fit0 <- predict.glmnet(fit0, s=0.01,newx=xreg[1:(train.set - my.lag),], type="response") # Arbitrary chocie of penalty term lambda
 
 model.fit0 <- data_frame(
   pred=as.numeric(model.fit0), 
-  se=rep(sd(model.fit0), length(model.fit0))) %>%
+  se=rep(sd(model.fit0), length(model.fit0))) %>% # Not calculating se correct yet
   mutate(
     t.idx = (1 + my.lag):train.set,
     point.pred = exp(pred) - 1,
@@ -96,7 +96,7 @@ model.fit0 <- data_frame(
 
 # Forecast
 forecast.wks.ahead <- my.lag
-forecast <- predict(fit0, n.ahead=forecast.wks.ahead,s=0.01, 
+forecast <- predict.glmnet(fit0, n.ahead=forecast.wks.ahead,s=0.01, 
                     newx=xreg[train.set - my.lag + 1:forecast.wks.ahead,])
 
 ### calculate mean predictions and 95% CIs
