@@ -86,7 +86,7 @@ model.fit0 <- predict.glmnet(fit0, s=0.01,newx=xreg[1:(train.set - my.lag),], ty
 
 model.fit0 <- data_frame(
   pred=as.numeric(model.fit0), 
-  se=rep(sd(model.fit0), length(model.fit0))) %>% # Not calculating se correct yet
+  se=rep(sd(model.fit0), length(model.fit0))) %>% # Not calculating se correct yet, need to find out how to extract residuals
   mutate(
     t.idx = (1 + my.lag):train.set,
     point.pred = exp(pred) - 1,
