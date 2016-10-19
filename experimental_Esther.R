@@ -37,7 +37,7 @@ my.stl <- stl(my.ys, s.window="periodic",na.action = na.approx)
 plot(my.stl)
 
 # timepoints
-t.idx <- 1:(52*10+2)
+t.idx <- 1:(52*10+2) # 10 years of training and testing
 train.set <- 52*5+2 # 5 years of training data
 first.predict <- train.set + 1
 last.prediction <- dim(DF)[1] 
@@ -65,7 +65,8 @@ attach(DF1)
 # Train model
 ########################################
 # log transform data
-log.cases <- log(cases + 1)
+log.cases <- log(cases + 1) # NEED TO FIT TO the percent of outpatient visits experiencing influenza-like illness (ILI) one week, two weeks, three weeks, and four weeks ahead from date of the forecast
+# so need to change this
 
 my.lag = 2
 
