@@ -1,7 +1,7 @@
 ###### Flu Forecasting Challenge ####### 
 
 ## title: "Forecasting Flu Template"
-## author: "TeamName"
+## author: "Underdog"
 ## date: "17 October 2016"
 
 # empty workspace
