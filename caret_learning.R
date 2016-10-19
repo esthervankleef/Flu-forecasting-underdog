@@ -56,8 +56,12 @@ train.size <- 600
 # make the changes
 DF1$dcases <- c(NA,diff(DF1$cases))
 #DF1$ddcases <- c(NA,diff(DF1$dcases)) # don't need now
-# create different lags
+# predictors with different lags
+#
+# the predictor with shortest lag gives the timepoint_reference
+#
 # lag of 4
+DF1$timepoint_reference <- lag(along(DF1$cases)) 
 DF1$cases_l4 <- lag(DF1$cases,n = 4)[1 : end.timeline]
 DF1$dcases_l4 <- lag(DF1$dcases,n = 4)[1 : end.timeline]
 # lag of 5
