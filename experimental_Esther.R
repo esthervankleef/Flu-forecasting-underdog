@@ -59,10 +59,6 @@ lines(density(rlnorm(10000, meanlog=ln$estimate[1], sdlog=ln$estimate[2])), col=
 # DF1$log.cases <- log(DF1$cases + 1)
 ts.cases = ts(DF1$cases,frequency=52, start=c(1997,40))
 
-# my.lag = 4
-# DF1$log.lag4 = lag(DF1$log.cases,my.lag)
-# 
-# DF1 = DF1[!is.na(DF1$log.lag4),]
 # attach dataframe
 attach(DF1)
 ########################################
@@ -71,13 +67,13 @@ attach(DF1)
 # log transform data
 log.cases <- log(cases + 1)
 
-my.lag = 4
+my.lag = 2
 
 # limit data to data available at train.time
 log.cases <- log.cases[1:train.set]
 
 # Fit simple model with lag 4 and week as factor
-xreg <- as.matrix(cbind(lag4=log.cases[1:train.set],week=factor(week)[1:train.set]))
+xreg <- as.matrix(cbind(lag4=log.cases[1:train.set],week=factor(week+my.lag)[1:train.set])) # Add lag to week, to make sure current week is taken, as this is known data and for seasonality no lag needed
 
 # # fit simple linear regression
 # lm0 = lm(log.cases[(1 + my.lag):train.set]~xreg[,1]+xreg[,2])
