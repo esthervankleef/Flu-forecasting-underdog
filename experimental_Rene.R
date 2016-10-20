@@ -68,7 +68,8 @@ DF2 <- DF1[(biggest_lag + 1 + highest_d):(end.timeline+short_lag),]
 first.prediction <- 675 # start of prediction window
 last.prediction <- DF2$timepoint_reference[dim(DF2)[1]]
 # in order to validate own predictions we need observed data: then minus shortest lag
-last.prediction <- last.prediction - short_lag
+prediction.ws.ahead <- 4
+last.prediction <- last.prediction - short_lag - prediction.ws.ahead
 
 ### initiate outputfile
 num.of.pred <- (last.prediction - first.prediction) + 1
@@ -100,7 +101,7 @@ for (pred.tpoint in first.prediction:last.prediction){
   # timeslices for timeseries, from 2 seasons
   fitControl <- trainControl(method = "timeslice",
                              initialWindow = 104,
-                             horizon = 10,
+                             horizon = 4,
                              fixedWindow = TRUE)
   # decide on the input for the forest
   my_input <- c("week","cases_l4","dcases_l4",
@@ -148,7 +149,7 @@ for (pred.tpoint in first.prediction:last.prediction){
   FAO$o4w[i] <- observed[4]
   
   ### save ARIMA
-  final_predict <- ar_predictions
+  final_predict <- as.numeric(ar_predictions$mean)
   # save 1 weeks forecast and observed
   FAOa$f1w[i] <- final_predict[1]
   FAOa$o1w[i] <- observed[1]
@@ -164,10 +165,14 @@ for (pred.tpoint in first.prediction:last.prediction){
 } ####### end of loop
 #####################################################
 # evaluate
+mse_rf_4w <- mean((FAO$o4w - FAO$f4w)^2)
 
 #####################################################
 # plot
-#plot(FAO)
+# rf
+my_title <- paste("RF 4-weeks, MSE =", as.character(round(mse_rf_4w,digits = 4)))
+plot(FAO$timepoint_reference,FAO$o4w,pch=19, col="black"); title(my_title)
+points(FAO$timepoint_reference,FAO$f4w,pch=20,col="darkred")
 
 ########################################
 #### saving
