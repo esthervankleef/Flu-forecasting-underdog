@@ -54,7 +54,7 @@ highest_d <- 2 # a second derivative produces 2 NAs
 DF2 <- DF1[(biggest_lag + 1 + highest_d):end.timeline,] 
 
 # decide the points from where to make first.prediction and last.prediction
-first.prediction <- 600
+first.prediction <- 675 # predict in a window of
 last.prediction <- DF2$timepoint_reference[dim(DF2)[1]]
 
 ### initiate outputfile
@@ -98,9 +98,11 @@ for (pred.tpoint in first.prediction:last.prediction){
                       verbose = TRUE,
                       tuneGrid = NULL, 
                       tuneLength = 3)
-        ############################
+        ####
         ### forecast: no longer than the shortest lag!
         rf_predictions <- predict(Fit1,DF[df_point+1:4,]) # point predictions
+        
+        
         
         ##################################################
         # example: ARIMA
@@ -108,7 +110,7 @@ for (pred.tpoint in first.prediction:last.prediction){
         # fit model
         Fit2 <- Arima(trainDF$cases, order=c(1,0,0),
                        seasonal=list(order=c(1,0,0),period=52), lambda = 1)
-        ##############################
+        ####
         ### forecast
         wks_ahead_arim <- 4
         ar_predictions <- forecast.Arima(Fit2,4)
