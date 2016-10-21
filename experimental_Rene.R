@@ -16,7 +16,7 @@ library(randomForest)
 library(caret)
 
 ########################################
-#### laod the data
+# laod the data
 load("./Data/data_manip.Rda")
 # select input variables
 DF <- usflu
@@ -25,6 +25,7 @@ DF <- DF %>%
 # only keep DF
 rm(usflu)
 
+########################################
 ### get rid of missing data by truncating
 missing.vals <- which(is.na(DF$cases))
 #
@@ -33,15 +34,13 @@ last.miss.val <- missing.vals[length(missing.vals)]
 last.prediction <- dim(DF)[1] 
 DF1 <- DF[(last.miss.val + 1):last.prediction,]
 
-### mutate variables: derivatives and lags
+########################################
+### mutate predictive variables: derivatives and lags
 # make derivatives
 DF1$dcases <- c(NA,diff(DF1$cases))
 #DF1$ddcases <- c(NA,diff(DF1$dcases)) # don't need now
 # create different lags
 end.timeline <- dim(DF1)[1]
-# the predictor with SHORTEST lag gives the timepoint_reference
-#
-biggest_lag <- 5 # a lag of 5 produces 5 NAs in beginning (in lagged data), and in end (in outcome)
 
 # extend the data.frame to fit in some lagged data
 short_lag <- 4
@@ -53,7 +52,8 @@ DF1 <- rbind(DF1,add_df)
 
 # lag of 4
 my_lag <- 4
-DF1$timepoint_reference <- lag(seq_along(DF1$cases), n = my_lag)[1 : (end.timeline+short_lag)] 
+# the predictor with SHORTEST lag gives the timepoint_reference
+DF1$timepoint_reference <- lag(DF1$weekname, n = my_lag)[1 : (end.timeline+short_lag)] 
 DF1$cases_l4 <- lag(DF1$cases, n = my_lag)[1 : (end.timeline+short_lag)]
 DF1$dcases_l4 <- lag(DF1$dcases, n = my_lag)[1 : (end.timeline+short_lag)]
 # lag of 5
@@ -64,12 +64,11 @@ DF1$dcases_l5 <- lag(DF1$dcases,n = my_lag)[1 : (end.timeline+short_lag)]
 highest_d <- 1 # a second derivative produces 2 NAs
 DF2 <- DF1[(biggest_lag + 1 + highest_d):(end.timeline+short_lag),] 
 
-# decide the points from where to make first.prediction and last.prediction
-first.prediction <- 675 # start of prediction window
-last.prediction <- DF2$timepoint_reference[dim(DF2)[1]]
-# in order to validate own predictions we need observed data: then minus shortest lag
+# decide the time points from where to make first.prediction and last.prediction
+first.prediction <- "2015-52" # start of prediction window
+# last.prediction; to validate own predictions we need observed data: then minus shortest lag
 prediction.ws.ahead <- 4
-last.prediction <- last.prediction - short_lag - prediction.ws.ahead
+last.prediction <- DF2$timepoint_reference[dim(DF2)[1] - short_lag - prediction.ws.ahead]
 
 ### initiate outputfile
 num.of.pred <- (last.prediction - first.prediction) + 1
@@ -86,7 +85,9 @@ FAOa <- data.frame(timepoint_reference = first.prediction:last.prediction) # SAR
 #### start the prediction loop
 DF <- DF2 # use DF in the loop
 i <- 0
-for (pred.tpoint in first.prediction:last.prediction){
+prstart <- which(DF$weekname == first.prediction)
+prstop <- which(DF$weekname == last.prediction)
+for (pred.tpoint in prstart:prstop){
   i = i + 1
   print(i) # print where you are in the loop
   
@@ -163,9 +164,11 @@ for (pred.tpoint in first.prediction:last.prediction){
   FAOa$f4w[i] <- final_predict[4]
   FAOa$o4w[i] <- observed[4]
 } ####### end of loop
+
 #####################################################
 # evaluate
 mse_rf_4w <- mean((FAO$o4w - FAO$f4w)^2)
+mse_AR_4w <- mean((FAOa$o4w - FAOa$f4w)^2)
 
 #####################################################
 # plot
@@ -173,6 +176,10 @@ mse_rf_4w <- mean((FAO$o4w - FAO$f4w)^2)
 my_title <- paste("RF 4-weeks, MSE =", as.character(round(mse_rf_4w,digits = 4)))
 plot(FAO$timepoint_reference,FAO$o4w,pch=19, col="black"); title(my_title)
 points(FAO$timepoint_reference,FAO$f4w,pch=20,col="darkred")
+# SARIMA
+my_title <- paste("SARIMA 4-weeks, MSE =", as.character(round(mse_AR_4w,digits = 4)))
+plot(FAOa$timepoint_reference,FAOa$o4w,pch=19, col="black"); title(my_title)
+points(FAOa$timepoint_reference,FAOa$f4w,pch=20,col="darkred")
 
 ########################################
 #### saving

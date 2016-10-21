@@ -9,6 +9,7 @@ rm(list = ls())
 script_name <- "data_manip"
 # libraries
 library(tidyverse)
+library(stringr)
 
 ########################################
 # load raw data
@@ -40,7 +41,8 @@ what_UniqueNonNumbs(usflu$ilitotal)
 # convert into numeric
 usflu <- usflu %>% 
         mutate(ilitotal = as.numeric(ilitotal),
-               total.patients = as.numeric(total.patients))
+               total.patients = as.numeric(total.patients),
+               x.weighted.ili = as.numeric(x.weighted.ili))
 # add output variable: ilitotal/total.patients
 usflu <- usflu %>% 
   mutate(cases = 100*ilitotal/total.patients)

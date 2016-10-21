@@ -57,6 +57,11 @@ featurePlot(x = DF$week,
             y = DF$cases,
             plot="scatter")
 
+# experimental_Rene
+featurePlot(x=trainDF[,my_input],
+            y=trainDF$x.weighted.ili,
+            plot = "scatter")
+
 
 
 
