@@ -18,8 +18,7 @@ library(glmnet)
 ########################################
 #### load the data
 load("./Data/data_manip.Rda")
-
-DF <- usflu
+DF <- usflu # already truncated and without NA (otherwise use usflu_allyears)
 
 #######################################################
 # log transform data
@@ -30,16 +29,7 @@ DF <- DF %>%
                                                  cases = log(cases+1)) # NA is one missing value which was coded as X
 
 # only keep DF
-rm(usflu)
-
-########################################
-### get rid of missing data by truncating
-missing.vals <- which(is.na(DF$cases))
-#
-last.miss.val <- missing.vals[length(missing.vals)]
-#
-last.prediction <- dim(DF)[1] 
-DF1 <- DF[(last.miss.val + 1):last.prediction,]
+rm(usflu, usflu_allyears)
 
 ### mutate variables: Add total number of cases from previous season as variable
 # identify where there are 53 weeks 
@@ -212,6 +202,7 @@ load(savename)
 
 #####################################################
 # plot
+par(mfrow=c(3,1)) 
 # reference (naive)
 my_title <- paste("Ref 4-weeks, MSE =", as.character(round(mse_ref_4w,digits = 4)))
 plot(FAO$timepoint_reference,FAO$o4w,pch=19, col="black"); title(my_title)
@@ -224,5 +215,6 @@ points(FAO$timepoint_reference,FAO$f4w,pch=20,col="darkred")
 my_title <- paste("SARIMA 4-weeks, MSE =", as.character(round(mse_AR_4w,digits = 4)))
 plot(FAOa$timepoint_reference,FAOa$o4w,pch=19, col="black"); title(my_title)
 points(FAOa$timepoint_reference,FAOa$f4w,pch=20,col="darkred")
+par(mfrow=c(1,1)) 
 
 #write.csv(outputfile,file="./Data/DARIMA_forecastsRF_11.csv",row.names = FALSE)
