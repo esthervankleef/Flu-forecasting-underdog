@@ -199,11 +199,14 @@ for (pred.tpoint in prstart:prstop){
 mse_rf_4w <- mean((FAO$o4w - FAO$f4w)^2)
 mse_AR_4w <- mean((FAOa$o4w - FAOa$f4w)^2)
 mse_ref_4w <- mean((FAO$o4w - lag(FAO$o4w,n = 4))^2,na.rm = TRUE)
+eval <- data.frame(mse_rf_4w=mse_rf_4w,
+                   mse_AR_4w=mse_AR_4w,
+                   mse_ref_4w=mse_ref_4w)
 
 ########################################
 #### save & load
 savename <- paste0("./Data/", "experimental_Rene", ".Rda")
-save(FAO,FAOa,mse_rf_4w,mse_AR_4w,mse_ref_4w,file = savename)
+save(FAO,FAOa,eval,file = savename)
 # loading (from here can be run without re-running the loop)
 load(savename)
 
