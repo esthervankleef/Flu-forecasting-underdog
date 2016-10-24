@@ -41,8 +41,7 @@ last.miss.val <- missing.vals[length(missing.vals)]
 last.prediction <- dim(DF)[1] 
 DF1 <- DF[(last.miss.val + 1):last.prediction,]
 
-### mutate variables: derivatives and lags
-# Add total number of cases from previous season as variable
+### mutate variables: Add total number of cases from previous season as variable
 week53 = DF1$year[which(DF1$week == 53)]
 
 season=NULL
