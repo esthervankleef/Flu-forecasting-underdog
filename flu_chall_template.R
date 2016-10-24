@@ -14,16 +14,24 @@ library(lubridate)
 library(forecast)
 library(randomForest)
 library(caret)
-
+library(glmnet)
 ########################################
-#### laod the data
+#### load the data
 load("./Data/data_manip.Rda")
-# select input variables
+
 DF <- usflu
+
+#######################################################
+# log transform data
+# DO WE NEED TO LOG-TRANSFORM?
+# For ARIMA and LASSO yes. Is done in the below
 DF <- DF %>% 
-        dplyr::select(-region,-region.type)
+  dplyr::select(-region,-region.type) %>% mutate(cases = as.numeric(as.character(x.weighted.ili)),
+                                                 cases = log(cases+1)) # NA is one missing value which was coded as X
+
 # only keep DF
 rm(usflu)
+
 
 ### get rid of missing data by truncating
 missing.vals <- which(is.na(DF$cases))
@@ -33,25 +41,48 @@ last.miss.val <- missing.vals[length(missing.vals)]
 last.prediction <- dim(DF)[1] 
 DF1 <- DF[(last.miss.val + 1):last.prediction,]
 
+
 ### mutate variables: derivatives and lags
+# Add total number of cases from previous season as variable
+week53 = DF1$year[which(DF1$week == 53)]
+
+season=NULL
+for(i in 1:(length(unique(DF1$year))-1)){
+  if(!unique(DF1$year)[i] %in% week53){
+    s = rep(i,52)
+  }
+  else{
+    print(i)
+    s = rep(i,53)
+  }
+  season = c(season,s)
+}
+
+DF1$season = season
+
+seas = DF1%>%group_by(season) %>% summarise(seas_total = sum(log(cases+1))) %>% mutate(seas_total_l1=lag(seas_total,1))
+
+DF1 = left_join(DF1, seas)
+
 # make derivatives
-DF1$dcases <- c(NA,diff(DF1$cases))
+DF1$dcases <- c(NA,diff(DF1$cases)) 
 #DF1$ddcases <- c(NA,diff(DF1$dcases)) # don't need now
 # create different lags
 end.timeline <- dim(DF1)[1]
+
+
 # the predictor with shortest lag gives the timepoint_reference
-#
 # lag of 4
-DF1$timepoint_reference <- lag(seq_along(DF1$cases), n = 4)[1 : end.timeline] 
-DF1$cases_l4 <- lag(DF1$cases, n = 4)[1 : end.timeline]
-DF1$dcases_l4 <- lag(DF1$dcases, n = 4)[1 : end.timeline]
-# lag of 5
-DF1$cases_l5 <- lag(DF1$cases,n = 5)[1 : end.timeline]
-DF1$dcases_l5 <- lag(DF1$dcases,n = 5)[1 : end.timeline]
+DF1 = DF1[1 : end.timeline,] %>% mutate(timepoint_reference = lag(seq_along(cases), n = 4), # This is created so we can keep track of what data was available at the time from which the predictions are made
+                                        cases_l4 = lag(cases, n = 4),
+                                        dcases_l4 = lag(dcases, n = 4), 
+                                        cases_l5 = lag(cases,n = 5),
+                                        dcases_l5 = lag(dcases,n = 5))
+
 # truncate the NA-tail
-biggest_lag <- 5 # a lag of 5 produces 5 NAs
-highest_d <- 2 # a second derivative produces 2 NAs
-DF2 <- DF1[(biggest_lag + 1 + highest_d):end.timeline,] 
+biggest_lag <- 53 # the season lag produces 53 NAs
+#highest_d <- 2 # a second derivative produces 2 NAs --> I think we only have first derivative which produces one lag; but I suppose this was meant for the variable you said earlier that is 'not needed for now' 
+DF2 <- DF1[(biggest_lag):end.timeline,] 
 
 # decide the points from where to make first.prediction and last.prediction
 first.prediction <- 675 # predict in a window of
@@ -62,10 +93,6 @@ num.of.pred <- (last.prediction - first.prediction) + 1
 model.evaluation <- matrix(0, nrow = 2,ncol = num.of.pred)
 #
 FAO <- data.frame(timepoint_reference = first.prediction:last.prediction)
-
-#######################################################
-# log transform data
-# DO WE NEED TO LOG-TRANSFORM?
 
 #######################################################
 #### start the prediction loop
@@ -92,16 +119,16 @@ for (pred.tpoint in first.prediction:last.prediction){
         my_input <- c("week","cases_l4","dcases_l4",
                       "cases_l5","dcases_l5")
         # train model
-        Fit1 <- train(x = trainDF[,my_input], y = trainDF$cases, 
-                      method = "rf", 
+        Fit1 <- train(x = trainDF[,my_input], y = trainDF$cases,
+                      method = "rf",
                       trControl = fitControl,
                       verbose = TRUE,
-                      tuneGrid = NULL, 
+                      tuneGrid = NULL,
                       tuneLength = 3)
         ####
         ### forecast: no longer than the shortest lag!
         rf_predictions <- predict(Fit1,DF[df_point+1:4,]) # point predictions
-        
+
         
         
         ##################################################
@@ -122,19 +149,19 @@ for (pred.tpoint in first.prediction:last.prediction){
         final_predict <- weightfor_rf*rf_predictions + 
           (1-weightfor_rf)*as.numeric(ar_predictions$mean)
         # actual values
-        observed <- DF$cases[df_point+1:4]
+        observed <- DF$x.weighted.ili[df_point+1:4]
         
         # save 1 weeks forecast and observed
-        FAO$f1w[i] <- final_predict[1]
+        FAO$f1w[i] <- exp(final_predict[1])-1
         FAO$o1w[i] <- observed[1]
         # save 2 weeks forecast and observed
-        FAO$f2w[i] <- final_predict[2]
+        FAO$f2w[i] <- exp(final_predict[2])-1
         FAO$o2w[i] <- observed[2]
         # save 3 weeks forecast and observed
-        FAO$f3w[i] <- final_predict[3]
+        FAO$f3w[i] <- exp(final_predict[3])-1
         FAO$o3w[i] <- observed[3]
         # save 4 weeks forecast and observed
-        FAO$f4w[i] <- final_predict[4]
+        FAO$f4w[i] <- exp(final_predict[4])-1
         FAO$o4w[i] <- observed[4]
         
         ####evaluate models
