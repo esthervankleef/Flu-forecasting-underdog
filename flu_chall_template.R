@@ -42,33 +42,33 @@ last.prediction <- dim(DF)[1]
 DF1 <- DF[(last.miss.val + 1):last.prediction,]
 
 ### mutate variables: Add total number of cases from previous season as variable
+# identify where there are 53 weeks 
 week53 = DF1$year[which(DF1$week == 53)]
-
+# give each timepoint the season name
 season=NULL
 for(i in 1:(length(unique(DF1$year))-1)){
   if(!unique(DF1$year)[i] %in% week53){
     s = rep(i,52)
   }
   else{
-    print(i)
     s = rep(i,53)
   }
   season = c(season,s)
 }
-
 DF1$season = season
 
-seas = DF1%>%group_by(season) %>% summarise(seas_total = sum(log(cases+1))) %>% mutate(seas_total_l1=lag(seas_total,1))
-
-DF1 = left_join(DF1, seas)
+# create a sum over seasons 
+seas = DF1%>%group_by(season) %>% summarise(seas_total = sum(cases)) %>% mutate(seas_total_l1=lag(seas_total,1))
+# add as covariate
+DF1 = left_join(DF1, seas, by="season")
 
 ### mutate predictive variables: derivatives and lags
-# make derivatives
-DF1$dcases <- c(NA,diff(DF1$cases)) 
-
-#DF1$ddcases <- c(NA,diff(DF1$dcases)) # don't need now
-# create different lags
+# get length
 end.timeline <- dim(DF1)[1]
+# make first derivative
+DF1$dcases <- c(NA,diff(DF1$cases)) 
+# makes second derivative
+#DF1$ddcases <- c(NA,diff(DF1$dcases)) # don't need now
 
 # extend the data.frame to fit in lagged variables
 short_lag <- 4
@@ -87,12 +87,12 @@ DF1 = DF1[1 : (end.timeline+short_lag),] %>% mutate(timepoint_reference = lag(se
                                         dcases_l4 = lag(dcases, n = 4), 
                                         cases_l5 = lag(cases,n = 5),
                                         dcases_l5 = lag(dcases,n = 5))
+
 # truncate the NA-tail
 #biggest_lag <- 5 # will introduce NA 
 biggest_lag <- 53 # the season lag produces 53 NAs
 #highest_d <- 2 # a second derivative produces 2 NAs --> I think we only have first derivative which produces one lag; but I suppose this was meant for the variable you said earlier that is 'not needed for now' 
 DF2 <- DF1[(biggest_lag):end.timeline,] 
-
 
 # decide the time points from where to make first.prediction and last.prediction
 first.prediction <- DF2$timepoint_reference[which(DF2$weekname=="2015-32")] # week from where to make the first prediction
@@ -113,7 +113,6 @@ FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
 #### start the prediction loop
 DF <- DF2 # use DF in the loop
 i <- 0
-
 for (pred.tpoint in prstart:prstop){
   i = i + 1
   print(i) # print where you are in the loop
@@ -195,19 +194,18 @@ for (pred.tpoint in prstart:prstop){
   FAOa$o4w[i] <- observed[4]
 
 } ####### end of loop
-
-########################################
-#### saving
-savename <- paste0("./Data/", "experimental_Rene", ".Rda")
-save(FAO,FAOa,file = savename)
-# loading (from here can be run without re-running the loop)
-load(savename)
-
 #####################################################
 # evaluate
 mse_rf_4w <- mean((FAO$o4w - FAO$f4w)^2)
 mse_AR_4w <- mean((FAOa$o4w - FAOa$f4w)^2)
 mse_ref_4w <- mean((FAO$o4w - lag(FAO$o4w,n = 4))^2,na.rm = TRUE)
+
+########################################
+#### save & load
+savename <- paste0("./Data/", "experimental_Rene", ".Rda")
+save(FAO,FAOa,mse_rf_4w,mse_AR_4w,mse_ref_4w,file = savename)
+# loading (from here can be run without re-running the loop)
+load(savename)
 
 #####################################################
 # plot
