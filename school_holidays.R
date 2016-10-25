@@ -139,13 +139,13 @@ holiday_df <- data.frame(time_line=my_time_line,
 holiday_perweek <- holiday_df %>% 
   group_by(weekname) %>% 
   summarise(big_holidays=as.numeric(any(whenis_bigholiday==1)),
-            inschool=sum(whenare_kidsoff==0))
+            inschool=as.numeric(sum(whenare_kidsoff==0)))
 
 
 ########################################
 #### save & load
 savename <- paste0("./Data/", script_name, ".Rda")
-save(holiday_df,holiday_perweek,file = savename)
+save(holiday,holiday_perweek,file = savename)
 
 
 

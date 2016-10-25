@@ -24,7 +24,7 @@ DF <- usflu # already truncated and without NA (otherwise use usflu_allyears)
 # log transform data
 # DO WE NEED TO LOG-TRANSFORM?
 # For ARIMA and LASSO yes. Is done in the below
-DF <- DF %>% 
+DF1 <- DF %>% 
   dplyr::select(-region,-region.type) %>% mutate(cases = as.numeric(as.character(x.weighted.ili)),
                                                  cases = log(cases+1)) # NA is one missing value which was coded as X
 
