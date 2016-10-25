@@ -9,6 +9,7 @@ rm(list = ls())
 script_name <- "data_manip"
 # libraries
 library(tidyverse)
+library(stringr)
 
 ########################################
 # load raw data
@@ -40,12 +41,22 @@ what_UniqueNonNumbs(usflu$ilitotal)
 # convert into numeric
 usflu <- usflu %>% 
         mutate(ilitotal = as.numeric(ilitotal),
-               total.patients = as.numeric(total.patients))
+               total.patients = as.numeric(total.patients),
+               x.weighted.ili = as.numeric(x.weighted.ili))
 # add output variable: ilitotal/total.patients
 usflu <- usflu %>% 
   mutate(cases = 100*ilitotal/total.patients)
 
+usflu_allyears <- usflu
+# cut off the NA by truncating
+missing.vals <- which(is.na(usflu_allyears$cases))
+#
+last.miss.val <- missing.vals[length(missing.vals)]
+#
+last.prediction <- dim(usflu_allyears)[1] 
+usflu <- usflu_allyears[(last.miss.val + 1):last.prediction,]
+
 ###################################
 #### save
 savename <- paste0("./Data/", script_name,".Rda")
-save(usflu, file = savename)
+save(usflu,usflu_allyears, file = savename)
