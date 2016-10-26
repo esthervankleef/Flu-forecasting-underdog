@@ -14,8 +14,7 @@ library(lubridate)
 library(randomForest)
 library(caret)
 library(stringr)
-
-# find a source for school holidays
+# the timeDate package contains public holidays of countries (Christmas, Ester etc)
 library(timeDate)
 
 # List all holiday available
@@ -27,13 +26,16 @@ currentYear <- getRmetricsOptions("currentYear")
 
 ### make a timeline and then add presence and absence of holidays
 # set start and end date
-start_date <- ymd("2012-01-01")
-end_date <- ymd("2016-10-01")
+wday("2011-12-17") # I want to start with a sunday to capture complete weeks
+week("2011-12-16");week("2011-12-17")
+start_date <- ymd("2011-12-20")
+week("2017-08-07")
+end_date <- ymd("2017-08-07") # choose past flu season
 # make a timeline with dates 
 my_time_line <- (seq(start_date,end_date, by="day"))
 
-# these are the big holidays
-my_years <- 2012:2017
+# these are the big holidays#
+my_years <- 2011:2017 # I choose gererously
 #
 christmas_e <- ChristmasEve(year = my_years) # you could add days before and after
 christmas_d <- ChristmasDay(year = my_years) 
@@ -50,12 +52,11 @@ big_holidays <- c(christmas_e, christmas_d, boxd,
 big_holidays <- as.Date(big_holidays)
 #
 whenis_bigholiday <- (my_time_line%in%big_holidays)
-# get back christmas
+# get back all holidays 
 my_time_line[whenis_bigholiday]
 sum(whenis_bigholiday)
 # make numeric
 whenis_bigholiday <- as.numeric(whenis_bigholiday)
-
 
 ## get all the other holidays
 # weekends and holidays =TRUE, else FALSE
@@ -63,7 +64,7 @@ whenis_daysoffwork <- isHoliday(as.timeDate(my_time_line), holidays = holidayNYS
 table(whenis_daysoffwork)
 whenis_daysoffwork <- as.numeric(as.vector(whenis_daysoffwork))
 
-### kids out of school
+### kids out of school # this data starts 2011-12-25
 # [https://www.feiertagskalender.ch/ferien.php?geo=3537&jahr=2012&hl=en] kids in school
 schoolhols <- data.frame(dates = c("start","end"))
 # christmas
@@ -134,7 +135,11 @@ holiday_df <- data.frame(time_line=my_time_line,
                          week=week(my_time_line)) %>%
   mutate(whenare_kidsoff=as.numeric(whenis_daysoffwork==1|whenis_schoolfree==1)) %>% 
   mutate(weekname = paste(year,str_pad(week, 2, pad = "0"),sep="-"))
+# plot
+plot(as.numeric(as.factor(holiday_df$weekname[1000:2000])),holiday_df$whenis_bigholiday[1000:2000],pch=8,col="darkblue")
+points(holiday_df$whenare_kidsoff[1000:2000],col="darkred",pch=19)
 
+##############################
 # bin into week
 holiday_perweek <- holiday_df %>% 
   group_by(weekname) %>% 

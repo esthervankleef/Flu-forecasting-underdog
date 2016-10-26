@@ -64,7 +64,7 @@ my.cor9 <- cor(lag(DF1$cases,4),DF1$big_holidays,use = "complete") #
 
 ### cases vs weeks
 plot(abs(DF1$week - 31),DF1$cases)
-
+plot(DF1$week ,DF1$cases)
 
 ### linear regression models
 ili <- DF1$cases

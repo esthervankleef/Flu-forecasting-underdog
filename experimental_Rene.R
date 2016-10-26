@@ -85,11 +85,13 @@ biggest_lag <- 53 # the season lag produces 53 NAs
 DF2 <- DF1[(biggest_lag):end.timeline,] 
 
 # decide the time points from where to make first.prediction and last.prediction
-first.prediction <- DF2$timepoint_reference[which(DF2$weekname=="2012-01")] # week from where to make the first prediction
+train_set_start <- DF2$timepoint_reference[which(DF2$weekname=="2012-01")] # first week included in the training set
+first.prediction <- DF2$timepoint_reference[which(DF2$weekname=="2012-30")] # week from where to make the first prediction
 # last.prediction; to validate own predictions we need observed data: then minus shortest lag
 prediction.ws.ahead <- 4
 last.prediction <- DF2$timepoint_reference[dim(DF2)[1] - short_lag - prediction.ws.ahead]
 # make numeric timepoints
+trstart <- which(DF2$timepoint_reference == train_set_start) # star of training
 prstart <- which(DF2$timepoint_reference == first.prediction)
 prstop <- which(DF2$timepoint_reference == last.prediction)
 
@@ -113,11 +115,11 @@ for (pred.tpoint in prstart:prstop){
   
   # make train data
   df_point <- pred.tpoint # the data.frame row
-  trainDF <- DF[1:df_point,]
+  trainDF <- DF[trstart:df_point,]
   # create fit control 
   # timeslices for timeseries, from 2 seasons, horizon 4 weeks
   fitControl <- trainControl(method = "timeslice",
-                             initialWindow = 104,
+                             initialWindow = 20,
                              horizon = 4,
                              fixedWindow = TRUE)
   # decide on the input for the forest
@@ -139,13 +141,13 @@ for (pred.tpoint in prstart:prstop){
   ##################################################
   # example: ARIMA
   
-  # fit model
-  Fit2 <- Arima(trainDF$cases, order=c(1,0,0),
-                seasonal=list(order=c(1,0,0),period=52), lambda = 1)
+  # # fit model
+  # Fit2 <- Arima(trainDF$cases, order=c(1,0,0),
+  #               seasonal=list(order=c(1,0,0),period=52), lambda = 1)
   ####
   ### forecast
   wks_ahead_arim <- 4
-  ar_predictions <- forecast.Arima(Fit2,4)
+  ar_predictions <- NA
   
   # observed values
   observed <- DF$x.weighted.ili[df_point+1:4]
@@ -168,7 +170,7 @@ for (pred.tpoint in prstart:prstop){
   FAO$o4w[i] <- observed[4]
   
   ### save ARIMA
-  final_predict <- as.numeric(ar_predictions$mean)
+  final_predict <- c(NA,NA,NA,NA)
   # save 1 weeks forecast and observed
   FAOa$f1w[i] <- exp(final_predict[1])-1
   FAOa$o1w[i] <- observed[1]
@@ -201,19 +203,35 @@ load(savename)
 
 #####################################################
 # plot
-par(mfrow=c(3,1)) 
+par(mfrow=c(2,2)) 
 # reference (naive)
 my_title <- paste("Ref 4-weeks, MSE =", as.character(round(mse_ref_4w,digits = 4)))
 plot(FAO$timepoint_reference,FAO$o4w,pch=19, col="black"); title(my_title)
 points(FAO$timepoint_reference,c(lag(FAO$o4w,n = 4)),pch=20,col="darkred")
+# residuals reference
+my_residuals_r <- FAO$o4w - lag(FAO$o4w,n = 4) # observed minus model
+my_residuals_r <- abs(my_residuals_r)/FAO$o4w
+my_title <- "Absolute Residuals"
+fitsp1=smooth.spline (FAO$timepoint_reference[-(1:4)] ,my_residuals_r[-(1:4)] ,df =4)
+
+plot(FAO$timepoint_reference,my_residuals_r,pch=19, col="darkblue",ylim=c(0,1)); title(my_title)
+lines(fitsp1,col =" red " ,lwd =2)
 # rf
 my_title <- paste("RF 4-weeks, MSE =", as.character(round(mse_rf_4w,digits = 4)))
 plot(FAO$timepoint_reference,FAO$o4w,pch=19, col="black"); title(my_title)
 points(FAO$timepoint_reference,FAO$f4w,pch=20,col="darkred")
-# SARIMA
-my_title <- paste("SARIMA 4-weeks, MSE =", as.character(round(mse_AR_4w,digits = 4)))
-plot(FAOa$timepoint_reference,FAOa$o4w,pch=19, col="black"); title(my_title)
-points(FAOa$timepoint_reference,FAOa$f4w,pch=20,col="darkred")
-par(mfrow=c(1,1)) 
+# residuals
+my_residuals <-  FAO$o4w - FAO$f4w  # observed minus model
+my_residuals <- abs(my_residuals)/FAO$o4w
+my_title <- "Absolute Residuals"
+fitsp2=smooth.spline (FAO$timepoint_reference ,my_residuals ,df =4)
+plot(FAO$timepoint_reference,my_residuals,pch=19, col="darkblue",ylim=c(0,1)); title(my_title)
+lines(fitsp2,col =" red " ,lwd =2)
+
+# # SARIMA
+# my_title <- paste("SARIMA 4-weeks, MSE =", as.character(round(mse_AR_4w,digits = 4)))
+# plot(FAOa$timepoint_reference,FAOa$o4w,pch=19, col="black"); title(my_title)
+# points(FAOa$timepoint_reference,FAOa$f4w,pch=20,col="darkred")
+# par(mfrow=c(1,1))
 
 #write.csv(outputfile,file="./Data/DARIMA_forecastsRF_11.csv",row.names = FALSE)
