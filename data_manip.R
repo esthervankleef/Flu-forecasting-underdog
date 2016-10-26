@@ -62,8 +62,30 @@ for(i in 1:(length(unique(usflu$year))-1)){
 }
 usflu$season = season
 
+# Add co-variate 
 epi.treshold = 2.2
-usflu = usflu %>% group_by(season) %>% mutate(start_seas = ifelse(x.weighted.ili > epi.treshold,1,0))
+usflu = usflu %>% group_by(season) %>% mutate(tresh_weeks = ifelse(x.weighted.ili > epi.treshold,1,0),
+                                              start_seas = ifelse(duplicated(tresh_weeks), 0, tresh_weeks),
+                                              end_seas = cumsum(tresh_weeks),
+                                              end_seas = ifelse(tresh_weeks==1 & end_seas==max(end_seas, na.rm=T),1,0),
+                                              peak_seas = ifelse(x.weighted.ili==max(x.weighted.ili, na.rm=T),1,0))
+# Check whether one observation per season
+# table(usflu$season,usflu$start_seas); table(usflu$season,usflu$end_seas);table(usflu$season,usflu$peak_seas)
+# setwd("~/Dropbox/Forecasting Flu Challenge/Figures/")
+# png(filename = "Distr_seas_start_end_peak.png",width=500, height=250)
+# par(mfrow=c(1,3))
+# hist(usflu$week[which(usflu$start_seas==1)], xlab = "Season", ylab="Week", main = "Start season", breaks=c(1:53))
+# hist(usflu$week[which(usflu$peak_seas==1)], xlab = "Season", ylab="Week", main = "Peak season",breaks=c(1:53))
+# hist(usflu$week[which(usflu$end_seas==1)], xlab = "Season", ylab="Week", main = "End season",breaks=c(1:53))
+# dev.off()
+
+m_start_seas = median(usflu$week[which(usflu$start_seas==1)])
+m_end_seas = median(usflu$week[which(usflu$end_seas==1)])
+m_peak_seas = median(usflu$week[which(usflu$peak_seas==1)])
+
+usflu = usflu %>% mutate(m_start_seas = ifelse(week == m_start_seas,1,0),
+                         m_end_seas = ifelse(week == m_end_seas,1,0),
+                         m_peak_seas = ifelse(week == m_peak_seas,1,0))
 
 
 usflu_allyears <- usflu
