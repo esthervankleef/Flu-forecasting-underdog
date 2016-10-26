@@ -6,7 +6,7 @@
 
 # empty workspace
 rm(list = ls())
-script_name <- "flu_chall_template"
+script_name <- "lasso_learning"
 
 # libraries
 library(tidyverse)
@@ -16,11 +16,12 @@ library(randomForest)
 library(caret)
 library(glmnet)
 library(MASS)
+library(spatstat)
 ########################################
 #### load the data
 load("./Data/data_manip.Rda")
 
-DF <- usflu
+DF <- usflu_allyears
 
 #######################################################
 # log transform data
@@ -31,7 +32,7 @@ DF <- DF %>%
                                                  cases = log(cases+1)) # NA is one missing value which was coded as X
 
 # only keep DF
-rm(usflu)
+rm(usflu); rm(usflu_allyears)
 
 ########################################
 #### Explore data
@@ -110,7 +111,8 @@ DF1 = DF1[1 : (end.timeline+short_lag),] %>% mutate(timepoint_reference = lag(se
                                                     cases_l4 = lag(cases, n = 4),
                                                     dcases_l4 = lag(dcases, n = 4), 
                                                     cases_l5 = lag(cases,n = 5),
-                                                    dcases_l5 = lag(dcases,n = 5))
+                                                    dcases_l5 = lag(dcases,n = 5),
+                                                    magic_week = week^2)
 
 # truncate the NA-tail
 #biggest_lag <- 5 # will introduce NA 
@@ -156,7 +158,7 @@ for (pred.tpoint in first.prediction:last.prediction){
   trainDF <- DF[1:df_point,]
   
   # input for the forest
-  my_input <- c("week","cases_l4","dcases_l4","cases_l5","seas_total_l1")
+  my_input <- c("week","magic_week","cases_l4","dcases_l4","cases_l5","seas_total_l1")
   xreg = as.matrix(trainDF[,my_input])
   
   # fit LASSO regression
@@ -269,3 +271,14 @@ plot(FAO[[num.l]]$timepoint_reference+3, FAO[[num.l]]$o4w,
      xlab="date", ylab="cases", main=paste("4-week prediction best s =", best.l))
 lines(FAO[[num.l]]$timepoint_reference+3, FAO[[num.l]]$f4w,
       col=adjustcolor(cols[num.l], 0.5), lwd=3)
+
+# Plot absolute errors
+plot(FAO[[num.l]]$timepoint_reference+3, abs(FAO[[num.l]]$f4w-FAO[[num.l]]$o4w), 
+     pch=19, cex=0.25,
+     xlab="date", ylab="cases", main=paste("4-week prediction best s =", best.l))
+
+# Plot fit with best s
+plot(Fit0, label=T)
+cv.lasso <- cv.glmnet(x=xreg, y=trainDF$cases)
+plot(cv.lasso)  # Best fitting model has 3 parameters
+(coef(cv.lasso)) # Season total does not seem to add anything
