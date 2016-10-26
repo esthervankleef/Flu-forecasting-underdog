@@ -47,6 +47,25 @@ usflu <- usflu %>%
 usflu <- usflu %>% 
   mutate(cases = 100*ilitotal/total.patients)
 
+# identify where there are 53 weeks 
+week53 = usflu$year[which(usflu$week == 53)]
+# give each timepoint the season name
+season=NULL
+for(i in 1:(length(unique(usflu$year))-1)){
+  if(!unique(usflu$year)[i] %in% week53){
+    s = rep(i,52)
+  }
+  else{
+    s = rep(i,53)
+  }
+  season = c(season,s)
+}
+usflu$season = season
+
+epi.treshold = 2.2
+usflu = usflu %>% group_by(season) %>% mutate(start_seas = ifelse(x.weighted.ili > epi.treshold,1,0))
+
+
 usflu_allyears <- usflu
 # cut off the NA by truncating
 missing.vals <- which(is.na(usflu_allyears$cases))
@@ -55,6 +74,7 @@ last.miss.val <- missing.vals[length(missing.vals)]
 #
 last.prediction <- dim(usflu_allyears)[1] 
 usflu <- usflu_allyears[(last.miss.val + 1):last.prediction,]
+
 
 ###################################
 #### save
