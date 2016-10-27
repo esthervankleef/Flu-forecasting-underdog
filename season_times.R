@@ -59,6 +59,17 @@ usflu = usflu %>% mutate(m_start_seas = ifelse(week == m_start_seas,1,0),
 seas_times =  usflu[,c("weekname","tresh_weeks","start_seas","end_seas",
                              "peak_seas","m_start_seas","m_end_seas","m_peak_seas")]
 
+
+# "tresh_weeks" = Weeks that have reported ILI% above treshold of 2.2% 
+# "start_seas" =  Actual start of season (based on when first report of 2.2% in that season)
+# "end_seas" = Actual end of season (based on when last report of 2.2% in that season)
+# "peak_seas" =  Actual peak season (based on when highest report)
+# "m_start_seas" = Median start of season over all years
+# "m_end_seas" = Median end of season over all years
+# "m_peak_seas" = Median peak season over all years
+
+
+
 ########################################
 #### save & load
 savename <- paste0("./Data/", script_name, ".Rda")

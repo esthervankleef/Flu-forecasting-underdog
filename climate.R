@@ -31,15 +31,15 @@ for(i in c(2:10)){
 # Temperature patterns seems quite similar across the regions
 
 
-#  Plot prec
-plot(clim$natAnom, main="Precipitation anomaly", ylim=c(-15,15))
+#  Plot Temperature anomalies
+plot(clim$natAnom, main="Temperature anomaly", ylim=c(-15,15))
 col=rainbow(length(c(11:20)))
 for(i in c(11:20)){
   lines(clim[,i], col=col[i-10])  
 }
 
 clim = clim%>%dplyr::select(weekname,nat,natAnom)
-names(clim) = c("weekname","temp_av","prec_anom_av")
+names(clim) = c("weekname","temp_av","temp_anom_av")
 
 
 ########################################
