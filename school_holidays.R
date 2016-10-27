@@ -150,7 +150,7 @@ holiday_perweek <- holiday_df %>%
 ########################################
 #### save & load
 savename <- paste0("./Data/", script_name, ".Rda")
-save(holiday,holiday_perweek,file = savename)
+save(holiday_perweek,file = savename)
 
 
 

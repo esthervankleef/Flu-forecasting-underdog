@@ -16,9 +16,12 @@ library(randomForest)
 library(caret)
 library(glmnet)
 ########################################
-#### load the data
+#### load data
+# flu data
 load("./Data/data_manip.Rda")
 DF <- usflu # already truncated and without NA (otherwise use usflu_allyears)
+# holiday data
+load("./Data/school_holidays.Rda")
 
 #######################################################
 # log transform data
@@ -27,9 +30,10 @@ DF <- usflu # already truncated and without NA (otherwise use usflu_allyears)
 DF1 <- DF %>% 
   dplyr::select(-region,-region.type) %>% mutate(cases = as.numeric(as.character(x.weighted.ili)),
                                                  cases = log(cases+1)) # NA is one missing value which was coded as X
-
 # only keep DF
-rm(usflu, usflu_allyears)
+rm(usflu, usflu_allyears, DF)
+# add holidays to the dataframe
+DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
 
 ### mutate variables: Add total number of cases from previous season as variable
 # identify where there are 53 weeks 
