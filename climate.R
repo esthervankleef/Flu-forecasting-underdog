@@ -38,7 +38,8 @@ for(i in c(11:20)){
   lines(clim[,i], col=col[i-10])  
 }
 
-clim = clim%>%dplyr::select(weekname,nat,natAnom)
+clim = clim%>%dplyr::select(weekname,nat,natAnom) %>% mutate(nat = as.numeric(nat), 
+                                                             natAnom=as.numeric(natAnom))
 names(clim) = c("weekname","temp_av","temp_anom_av")
 
 

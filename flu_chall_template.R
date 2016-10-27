@@ -49,7 +49,9 @@ week53_names <- paste(week53,"53",sep="-")
 where_week53 <- which(DF1$weekname %in% week53_names)
 #
 my_vars <- c("x.weighted.ili","ilitotal",
-             "total.patients","cases","big_holidays","inschool")
+             "total.patients","cases","big_holidays","inschool","m_start_seas",
+             "m_end_seas","m_peak_seas","temp_av","temp_anom_av")
+
 # take the mean
 DF1[where_week53-1,my_vars] <- (DF1[where_week53-1,my_vars] + DF1[where_week53,my_vars])/2
 # remove week 53
