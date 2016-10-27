@@ -22,6 +22,8 @@ load("./Data/data_manip.Rda")
 DF <- usflu # already truncated and without NA (otherwise use usflu_allyears)
 # holiday data
 load("./Data/school_holidays.Rda")
+load("./Data/clim_data.Rda")
+load("./Data/seas_times.Rda")
 
 #######################################################
 # log transform data
@@ -34,7 +36,11 @@ DF1 <- DF %>%
 rm(usflu, usflu_allyears, DF)
 # add holidays to the dataframe
 DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
-DF1 <- DF2
+DF3 <- dplyr::left_join(DF2,seas_times,by = "weekname")
+DF4 <- dplyr::left_join(DF3,clim, by="weekname")
+
+DF1 <- DF4
+
 ### mutate variables: Add total number of cases from previous season as variable
 # identify where there are 53 weeks 
 week53 = DF1$year[which(DF1$week == 53)]
