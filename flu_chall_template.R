@@ -24,6 +24,7 @@ DF <- usflu # already truncated and without NA (otherwise use usflu_allyears)
 load("./Data/school_holidays.Rda")
 load("./Data/clim_data.Rda")
 load("./Data/seas_times.Rda")
+load("./Data/google_data.Rda")
 
 #######################################################
 # log transform data
@@ -38,8 +39,9 @@ rm(usflu, usflu_allyears, DF)
 DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
 DF3 <- dplyr::left_join(DF2,seas_times,by = "weekname")
 DF4 <- dplyr::left_join(DF3,clim, by="weekname")
+DF5 <- dplyr::left_join(DF4,google, by="weekname")
 
-DF1 <- DF4
+DF1 <- DF5
 
 ### mutate variables: Add total number of cases from previous season as variable
 # identify where there are 53 weeks 
@@ -50,7 +52,8 @@ where_week53 <- which(DF1$weekname %in% week53_names)
 #
 my_vars <- c("x.weighted.ili","ilitotal",
              "total.patients","cases","big_holidays","inschool","m_start_seas",
-             "m_end_seas","m_peak_seas","temp_av","temp_anom_av")
+             "m_end_seas","m_peak_seas","temp_av","temp_anom_av",
+             "gfever","gheadache","gdoctor","gshivering","gcough")
 
 # take the mean
 DF1[where_week53-1,my_vars] <- (DF1[where_week53-1,my_vars] + DF1[where_week53,my_vars])/2
