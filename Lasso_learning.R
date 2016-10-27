@@ -180,7 +180,7 @@ for (pred.tpoint in pred_vector){
   
   
   # fit LASSO regression
-  Fit0 = glmnet(y=trainDF$cases[1 : (ltrain - wks_ahead)],x=xreg[1 : (ltrain - wks_ahead), my_input], family="gaussian") # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
+  Fit0 = glmnet(y=trainDF$cases[(1 + wks_ahead):ltrain],x=xreg[1 : (ltrain - wks_ahead), my_input], family="gaussian") # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
                                                           # if alpha=1, ridge regression is used.
 
   # Forecast
@@ -193,7 +193,7 @@ for (pred.tpoint in pred_vector){
   # example: ARIMA
   
   # fit model
-  Fit2 <- Arima(trainDF$cases[1 : (ltrain - wks_ahead)], order=c(1,0,0),
+  Fit2 <- Arima(trainDF$cases[(1 + wks_ahead):ltrain], order=c(1,0,0),
                 seasonal=list(order=c(1,0,0),period=52), lambda = 1)
   ####
   ### forecast
@@ -247,32 +247,35 @@ mse_ref_4w <- mean((FAO[[1]]$o4w - lag(FAO[[1]]$o4w,n = 4))^2,na.rm = TRUE)
 #####################################################
 # Plot output
 par(mfrow=c(1,3))
-plot(FAO[[1]]$timepoint_reference+3, FAO[[1]]$o4w, 
+plot(FAO[[1]]$timepoint_reference, FAO[[1]]$o4w, 
      pch=19, cex=0.25,
      xlab="date", ylab="cases", main="4-week prediction")
 
 cols<-rainbow(length(su))
 for(i in 1:length(su)){
-  lines(FAO[[i]]$timepoint_reference+3, FAO[[i]]$f4w,
+  lines(FAO[[i]]$timepoint_reference, FAO[[i]]$f4w,
         col=adjustcolor(cols[i], 0.5), lwd=3)
 }
+
 # Best fitting lambda
-num.l = which(mse_4w$mse==min(mse_4w$mse))[length(which(mse_4w$mse==min(mse_4w$mse)))]
-best.l = mse_4w$s[num.l]
+num.l = which(mse_LA_4w$mse==min(mse_LA_4w$mse))[length(which(mse_LA_4w$mse==min(mse_LA_4w$mse)))]
+best.l = mse_LA_4w$s[num.l]
 
 # Plot best fitting lambda
-plot(mse_4w$s, mse_4w$mse, type="l", main="MSE using different s", xlab="value s", ylab="MSE")
+plot(mse_LA_4w$s, mse_LA_4w$mse, type="l", main="MSE using different s", xlab="value s", ylab="MSE")
 lines(rep(best.l,101),seq(0,1,0.01), lty=2,col="red")
 
 # Plot fit with best fitting lambda
-plot(FAO[[num.l]]$timepoint_reference+3, FAO[[num.l]]$o4w, 
+plot(FAO[[num.l]]$timepoint_reference, FAO[[num.l]]$o4w, 
      pch=19, cex=0.25,
      xlab="date", ylab="cases", main=paste("4-week prediction best s =", best.l))
-lines(FAO[[num.l]]$timepoint_reference+3, FAO[[num.l]]$f4w,
+lines(FAO[[num.l]]$timepoint_reference, FAO[[num.l]]$f4w,
       col=adjustcolor(cols[num.l], 0.5), lwd=3)
+lines(FAOa$timepoint_reference, FAOa$f4w,
+      col=adjustcolor(cols[2], 0.5), lwd=3)
 
 # Plot absolute errors
-plot(FAO[[num.l]]$timepoint_reference+3, abs(FAO[[num.l]]$f4w-FAO[[num.l]]$o4w)/FAO[[num.l]]$o4w, 
+plot(FAO[[num.l]]$timepoint_reference, abs(FAO[[num.l]]$f4w-FAO[[num.l]]$o4w)/FAO[[num.l]]$o4w, 
      pch=19, cex=0.25,
      xlab="date", ylab="cases", main=paste("4-week prediction best s =", best.l))
 
@@ -284,4 +287,4 @@ exp(coef(cv.lasso)) # Season total does not seem to add anything
 eval <- data.frame(mse_LA_4w=mse_LA_4w$mse[num.l],
                    mse_AR_4w=mse_AR_4w,
                    mse_ref_4w=mse_ref_4w)
-
+eval
