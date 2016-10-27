@@ -187,27 +187,24 @@ for (pred.tpoint in pred_vector){
                 tuneGrid = NULL, 
                 tuneLength = 3,
                 importance = FALSE)
-  ### forecast: no longer than the shortest lag!
-  rf_predictions <- predict(Fit1,trainDF[(ltrain - wks_ahead + 1):ltrain, my_input]) # point predictions
   # obtain feature rank
   #varImp(Fit1)
-  
-  
-  
+  ### forecast: no longer than the shortest lag!
+  covars_for_forecast <- trainDF[(ltrain - wks_ahead + 1):ltrain, my_input]
+  rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
+  # observed values
+  observed <- DF$cases[df_point + 1:wks_ahead]
   
   ##################################################
-  # example: ARIMA
+  # SARIMA
   
   # fit model
   Fit2 <- Arima(trainDF$cases[1 : (ltrain - wks_ahead)], order=c(1,0,0),
                 seasonal=list(order=c(1,0,0),period=52), lambda = 1)
-  ####
   ### forecast
   wks_ahead_arim <- 4
   ar_predictions <- forecast.Arima(Fit2,4)
   
-  # observed values
-  observed <- exp(trainDF$cases[(ltrain - wks_ahead + 1):ltrain])-1
   #####################
   ### output
   
@@ -215,31 +212,31 @@ for (pred.tpoint in pred_vector){
   final_predict <- rf_predictions
   # save 1 weeks forecast and observed
   FAO$f1w[i] <- exp(final_predict[1])-1
-  FAO$o1w[i] <- observed[1]
+  FAO$o1w[i] <- exp(observed[1])-1
   # save 2 weeks forecast and observed
   FAO$f2w[i] <- exp(final_predict[2])-1
-  FAO$o2w[i] <- observed[2]
+  FAO$o2w[i] <- exp(observed[2])-1
   # save 3 weeks forecast and observed
   FAO$f3w[i] <- exp(final_predict[3])-1
-  FAO$o3w[i] <- observed[3]
+  FAO$o3w[i] <- exp(observed[3])-1
   # save 4 weeks forecast and observed
   FAO$f4w[i] <- exp(final_predict[4])-1
-  FAO$o4w[i] <- observed[4]
+  FAO$o4w[i] <- exp(observed[4])-1
   
   ### save ARIMA
   final_predict <- as.numeric(ar_predictions$mean)
   # save 1 weeks forecast and observed
   FAOa$f1w[i] <- exp(final_predict[1])-1
-  FAOa$o1w[i] <- observed[1]
+  FAOa$o1w[i] <- exp(observed[1])-1
   # save 2 weeks forecast and observed
   FAOa$f2w[i] <- exp(final_predict[2])-1
-  FAOa$o2w[i] <- observed[2]
+  FAOa$o2w[i] <- exp(observed[2])-1
   # save 3 weeks forecast and observed
   FAOa$f3w[i] <- exp(final_predict[3])-1
-  FAOa$o3w[i] <- observed[3]
+  FAOa$o3w[i] <- exp(observed[3])-1
   # save 4 weeks forecast and observed
   FAOa$f4w[i] <- exp(final_predict[4])-1
-  FAOa$o4w[i] <- observed[4]
+  FAOa$o4w[i] <- exp(observed[4])-1
   
 } ####### end of loop
 #####################################################
