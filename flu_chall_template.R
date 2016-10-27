@@ -101,7 +101,9 @@ DF1 <-  DF1[1 : (end.timeline+short_lag),] %>%
     cases_l5 = lag(cases,n = 5),
     dcases_l5 = lag(dcases,n = 5),
     kids_cuddle_l2 = lag(inschool,n = 2),
-    big_hols_l1= lag(big_holidays,n = 1)
+    big_hols_l1= lag(big_holidays,n = 1),
+    sin_week = sin(2*pi*week/52),
+    cos_week = cos(2*pi*week/52)
   ) %>% 
   mutate(
     weekname = lag(weekname, n = 4),
@@ -202,7 +204,7 @@ for (pred.tpoint in pred_vector){
   ar_predictions <- forecast.Arima(Fit2,4)
   
   # observed values
-  observed <- trainDF$cases[(ltrain - wks_ahead + 1):ltrain]
+  observed <- exp(trainDF$cases[(ltrain - wks_ahead + 1):ltrain])-1
   #####################
   ### output
   
