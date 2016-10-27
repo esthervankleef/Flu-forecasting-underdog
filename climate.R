@@ -7,8 +7,8 @@ script_name <- "clim_data"
 # Click on excel logo. Then I copy pasted the text file into excel, saved it as a text and then imported
 # this text file in a new spread sheet and saved it as .csv
 
-# In this new spread sheet, I have manually removed the first row (saying temp in F etc), then saved this 
-# as weekly_temp_raw.csv
+# In this new spread sheet, I have manually removed the first row (saying temp in F etc), and the " from
+# first and last column. Then saved this as weekly_temp_raw.csv
 
 # Load data
 clim = read.csv("./Data/Weekly_temp_raw.csv", colClasses="character")
