@@ -38,17 +38,25 @@ DF1 <- DF2
 ### mutate variables: Add total number of cases from previous season as variable
 # identify where there are 53 weeks 
 week53 = DF1$year[which(DF1$week == 53)]
-# give each timepoint the season name
+# get rid of 53 week
+week53_names <- paste(week53,"53",sep="-")
+where_week53 <- which(DF1$weekname %in% week53_names)
+#
+my_vars <- c("x.weighted.ili","ilitotal",
+             "total.patients","cases","big_holidays","inschool")
+# take the mean
+DF1[where_week53-1,my_vars] <- (DF1[where_week53-1,my_vars] + DF1[where_week53,my_vars])/2
+# remove week 53
+DF1 <- DF1[-where_week53,]
+
+# give each timepoint the season name, assuming that the dataframe start at the start of a season
 season=NULL
-for(i in 1:(length(unique(DF1$year))-1)){
-  if(!unique(DF1$year)[i] %in% week53){
+for(i in 1:(length(unique(DF1$year))-0)){
     s = rep(i,52)
-  }
-  else{
-    s = rep(i,53)
-  }
-  season = c(season,s)
+    season = c(season,s)
 }
+# 
+season <- season[1:dim(DF1)[1]]
 DF1$season = season
 
 # create a sum over seasons 
@@ -77,30 +85,40 @@ DF1 <- rbind(DF1,add_df)
 # shortest lag of 4
 my_shortest_lag <- 4
 #
-DF1 = DF1[1 : (end.timeline+short_lag),] %>% 
-  mutate(ref_weekname = lag(weekname, n = 4),
+DF1 <-  DF1[1 : (end.timeline+short_lag),] %>% 
+  mutate(
+    data_weekname = lag(weekname, n = 4), # this is the week from where we use the data
          cases_l4 = lag(cases, n = 4),
          dcases_l4 = lag(dcases, n = 4), 
          cases_l5 = lag(cases,n = 5),
-         dcases_l5 = lag(dcases,n = 5))
+         dcases_l5 = lag(dcases,n = 5),
+         kids_cuddle_l2 = lag(inschool,n = 2),
+         big_hols_l1= lag(big_holidays,n = 1)
+    ) %>% 
+  mutate(
+    weekname = lag(weekname, n = 4),
+    cases = lag(cases, n = 4)
+  )
 
-# truncate the NA-tail
+# truncate the NA-beginning
 # the season lag produces 53 NA
 # but even more NA because holidays available form 2011-51
-DF1$weekname
-DF2 <- DF1[(biggest_lag):end.timeline,] 
-
-
-
+week_pos <- which(DF1$weekname == "2011-51") + 2 # plus because of lag
+DF2 <- DF1[week_pos:end.timeline,] 
 
 # decide the time points from where to make first.prediction and last.prediction
-first.prediction <- DF2$timepoint_reference[which(DF2$weekname=="2015-32")] # week from where to make the first prediction
+first.prediction <- "2012-23" # week from where to make the first prediction
 # last.prediction; to validate own predictions we need observed data: then minus shortest lag
+last.prediction <- "2016-35"
+last.prediction_df <- which(DF2$data_weekname == last.prediction)
+# where to put the start given the last prediction
+DF2$data_weekname[last.prediction_df - 220]
+
+#
 prediction.ws.ahead <- 4
-last.prediction <- DF2$timepoint_reference[dim(DF2)[1] - short_lag - prediction.ws.ahead]
 # make numeric timepoints
-prstart <- which(DF2$timepoint_reference == first.prediction)
-prstop <- which(DF2$timepoint_reference == last.prediction)
+prstart <- which(DF2$data_weekname == first.prediction)
+prstop <- which(DF2$data_weekname == last.prediction)
 
 ### initiate outputfile
 num.of.pred <- (prstop - prstart) + 1
@@ -118,22 +136,30 @@ for (pred.tpoint in prstart:prstop){
   
   ###############################################
   ################# model fitting
-  # example: RF
+  
+  # RANDOM FOREST
   
   # make train data
   df_point <- pred.tpoint # the data.frame row
   trainDF <- DF[1:df_point,]
-  # create fit control 
-  # timeslices for timeseries, from 2 seasons, horizon 4 weeks
+  
+  # training for 4 weeks-ahead
+  wks_ahead <- 4
+  # fit control timeslices for timeseries, from 2 seasons, horizon 4 weeks
   fitControl <- trainControl(method = "timeslice",
-                             initialWindow = 104,
-                             horizon = 4,
+                             initialWindow = 30,
+                             horizon = wks_ahead,
                              fixedWindow = TRUE)
   # decide on the input for the forest
   my_input <- c("week","cases_l4","dcases_l4",
                 "cases_l5")
   # train model
-  Fit1 <- train(x = trainDF[,my_input], y = trainDF$cases, 
+  # lag for fit
+  ltrain <- dim(trainDF)[1]
+  X <- trainDF[,my_input]
+  X <- lag(X, n=wks_ahead)
+  X <- X[1 : (ltrain - wks_ahead)]
+  Fit1 <- train(x = X, y = trainDF$cases[(1+wks_ahead):ltrain], 
                 method = "rf", 
                 trControl = fitControl,
                 verbose = TRUE,
@@ -142,7 +168,7 @@ for (pred.tpoint in prstart:prstop){
                 importance = FALSE)
   ####
   ### forecast: no longer than the shortest lag!
-  rf_predictions <- predict(Fit1,DF[df_point+1:4,my_input]) # point predictions
+  rf_predictions <- predict(Fit1,DF[df_point+1:wks_ahead,my_input]) # point predictions
   # obtain feature rank
   #varImp(Fit1)
   

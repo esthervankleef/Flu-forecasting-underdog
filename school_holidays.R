@@ -146,7 +146,12 @@ holiday_perweek <- holiday_df %>%
   summarise(big_holidays=as.numeric(any(whenis_bigholiday==1)),
             inschool=as.numeric(sum(whenare_kidsoff==0)))
 
-
+# fix week 53
+weeks_53 <- which(holiday_perweek$weekname %in% c("2011-53","2012-53","2013-53","2015-53","2016-53"))
+#
+holiday_perweek[weeks_53-1,3] <- (holiday_perweek[weeks_53,3]+holiday_perweek[weeks_53-1,3])
+# remove extra weeks
+holiday_perweek <- holiday_perweek[-weeks_53,]
 ########################################
 #### save & load
 savename <- paste0("./Data/", script_name, ".Rda")
