@@ -18,71 +18,55 @@ library(glmnet)
 library(MASS); library(tsModel)
 
 ########################################
-#### load the data
+#### load data
+# flu data
 load("./Data/data_manip.Rda")
+DF <- usflu # already truncated and without NA (otherwise use usflu_allyears)
+# holiday data
 load("./Data/school_holidays.Rda")
+load("./Data/clim_data.Rda")
 load("./Data/seas_times.Rda")
-
-DF <- usflu_allyears
 
 #######################################################
 # log transform data
 # DO WE NEED TO LOG-TRANSFORM?
 # For ARIMA and LASSO yes. Is done in the below
-DF <- DF %>% 
+DF1 <- DF %>% 
   dplyr::select(-region,-region.type) %>% mutate(cases = as.numeric(as.character(x.weighted.ili)),
                                                  cases = log(cases+1)) # NA is one missing value which was coded as X
-
-DF = left_join(DF, seas_times)
 # only keep DF
-rm(usflu); rm(usflu_allyears); rm(seas_times)
+rm(usflu, usflu_allyears, DF)
+# add holidays to the dataframe
+DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
+DF3 <- dplyr::left_join(DF2,seas_times,by = "weekname")
+DF4 <- dplyr::left_join(DF3,clim, by="weekname")
 
-########################################
-#### Explore data
-########################################
-names(DF)
-
-plot(DF$cases,pch=20, ylab="Cases", xlab="Time")
-
-# make time series
-my.ys <- ts(DF$cases,frequency=52, start=c(1997,40))
-
-# decompose time series
-my.stl <- stl(my.ys, s.window="periodic",na.action = na.approx)
-
-plot(my.stl)
-
-########################################
-### get rid of missing data by truncating
-missing.vals <- which(is.na(DF$cases))
-#
-last.miss.val <- missing.vals[length(missing.vals)]
-#
-last.prediction <- dim(DF)[1] 
-DF1 <- DF[(last.miss.val + 1):last.prediction,]
-
-# Check distribution of weekly cases
-par(mfrow=c(1,1))
-ln = fitdistr(DF1$cases,"normal")
-hist(DF1$cases, main = "Distribution cases", xlab="Weekly cases",freq=F);hist(DF1$cases, main = "Distribution log(cases)", xlab="log weekly cases",freq=F)
-lines(density(rnorm(10000, mean=ln$estimate[1], sd=ln$estimate[2])), col="red") 
-
-
+DF1 <- DF4
 
 ### mutate variables: Add total number of cases from previous season as variable
 # identify where there are 53 weeks 
 week53 = DF1$year[which(DF1$week == 53)]
-# give each timepoint the season name
+# get rid of 53 week
+week53_names <- paste(week53,"53",sep="-")
+where_week53 <- which(DF1$weekname %in% week53_names)
+#
+my_vars <- c("x.weighted.ili","ilitotal",
+             "total.patients","cases","big_holidays","inschool","m_start_seas",
+             "m_end_seas","m_peak_seas","temp_av","temp_anom_av")
+
+# take the mean
+DF1[where_week53-1,my_vars] <- (DF1[where_week53-1,my_vars] + DF1[where_week53,my_vars])/2
+# remove week 53
+DF1 <- DF1[-where_week53,]
+
+# give each timepoint the season name, assuming that the dataframe start at the start of a season
 season=NULL
-for(i in 1:(length(unique(DF1$year))-1)){
-  if(!unique(DF1$year)[i] %in% week53){
-    s = rep(i,52)
-  }
-  else{
-    s = rep(i,53)
-  }
+for(i in 1:(length(unique(DF1$year))-0)){
+  s = rep(i,52)
   season = c(season,s)
 }
+# 
+season <- season[1:dim(DF1)[1]]
 DF1$season = season
 
 # create a sum over seasons 
@@ -106,105 +90,117 @@ add_df[!is.na(add_df)] <- NA
 # add at the bottom
 DF1 <- rbind(DF1,add_df)
 
-# the predictor with shortest lag gives the timepoint_reference
-# lag of 4
-my_lag <- 4
+# the predictor with shortest lag gives lag for the week_name=the week from which we use all data
+# predictors of which we know future values can have shorter lag 
+# shortest lag of 4
+my_shortest_lag <- 4
+#
+DF1 <-  DF1[1 : (end.timeline+short_lag),] %>% 
+  mutate(
+    data_weekname = lag(weekname, n = 4), # this is the week from where we use the data
+    cases_l4 = lag(cases, n = 4),
+    dcases_l4 = lag(dcases, n = 4), 
+    cases_l5 = lag(cases,n = 5),
+    dcases_l5 = lag(dcases,n = 5),
+    kids_cuddle_l2 = lag(inschool,n = 2),
+    big_hols_l1= lag(big_holidays,n = 1),
+    sin_week = sin(2*pi*week/52),
+    cos_week = cos(2*pi*week/52)
+  ) %>% 
+  mutate(
+    weekname = lag(weekname, n = 4),
+    cases = lag(cases, n = 4)
+  )
 
-DF1 = DF1[1 : (end.timeline+short_lag),] %>% mutate(timepoint_reference = lag(seq_along(cases), n = 4), # This is created so we can keep track of what data was available at the time from which the predictions are made
-                                                    cases_l4 = lag(cases, n = 4),
-                                                    dcases_l4 = lag(dcases, n = 4), 
-                                                    cases_l5 = lag(cases,n = 5),
-                                                    dcases_l5 = lag(dcases,n = 5),
-                                                    sin_week = sin(2*pi*week/52),
-                                                    cos_week = cos(2*pi*week/52))
-
-# truncate the NA-tail
-#biggest_lag <- 5 # will introduce NA 
-biggest_lag <- 53 # the season lag produces 53 NAs
-#highest_d <- 2 # a second derivative produces 2 NAs --> I think we only have first derivative which produces one lag; but I suppose this was meant for the variable you said earlier that is 'not needed for now' 
-DF2 <- DF1[(biggest_lag):end.timeline,] 
+# truncate the NA-beginning
+# the season lag produces 53 NA
+# but even more NA because holidays available form 2011-51
+week_pos <- which(DF1$weekname == "2011-51") + 2 # plus because of lag
+DF2 <- DF1[week_pos:end.timeline,] 
 
 # decide the time points from where to make first.prediction and last.prediction
-first.prediction <- DF2$timepoint_reference[which(DF2$weekname=="2015-32")] # week from where to make the first prediction
+first.prediction <- "2015-35" # week from where to make the first prediction
 # last.prediction; to validate own predictions we need observed data: then minus shortest lag
-prediction.ws.ahead <- 4
-last.prediction <- DF2$timepoint_reference[dim(DF2)[1] - short_lag - prediction.ws.ahead]
-# make numeric timepoints
-prstart <- which(DF2$timepoint_reference == first.prediction)
-prstop <- which(DF2$timepoint_reference == last.prediction)
+last.prediction <- "2016-35"
+
+# where to put the start given the last prediction
+last.prediction_df <- which(DF2$data_weekname == last.prediction)
+DF2$data_weekname[last.prediction_df - 52]
+
+# make numeric for final training point = prediction point
+prstart <- which(DF2$data_weekname == first.prediction)
+prstop <- which(DF2$data_weekname == last.prediction)
+# all prediction points
+pred_vector <- prstart:prstop
+
+# start training points
+train_start_vector <- pred_vector - 190
 
 ### initiate outputfile
 num.of.pred <- (prstop - prstart) + 1
-# forcast 
+
+# forecast 
 one <- list(data.frame(timepoint_reference = prstart:prstop, f1w=NA,o1w=NA,f2w=NA,o2w=NA,f3w=NA,o3w=NA,f4w=NA,o4w=NA))
 su = seq(0,1,0.001)
 FAO=list()
 for(i in 1:length(su)){
   FAO = c(FAO,one)
 }
-#FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
+
+FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
 
 #######################################################
 #### start the prediction loop
 DF <- DF2 # use DF in the loop
 i <- 0
-
-for (pred.tpoint in first.prediction:last.prediction){
-    i = i + 1
-    print(i) # show where you are in the loop
+for (pred.tpoint in pred_vector){
+  i = i + 1
+  print(i) # print where you are in the loop
   
   ###############################################
   ################# model fitting
-  # example: LASSO
+  # Make train data
+  df_point <- pred.tpoint # the data.frame row
+  train_start <- train_start_vector[i] # moving window
+  trainDF <- DF[train_start:df_point,]
   
-  # make train data
-  df_point <- which(DF$timepoint_reference == pred.tpoint)
-  trainDF <- DF[1:df_point,]
-  
-  # input for the forest
-  my_input <- c("week","sin_week","cos_week", "cases_l4","dcases_l4","cases_l5","seas_total_l1")
+  # input for the LASSO
+  my_input <- c("week","sin_week","cos_week", "cases_l4","dcases_l4","cases_l5","seas_total_l1",
+                "m_start_seas","m_end_seas","m_peak_seas")
   xreg = as.matrix(trainDF[,my_input])
   
+  ######## 4 weeks-ahead ############
+  wks_ahead <- 4
+  # train model
+  ltrain <- dim(trainDF)[1]
+  
+  
+  
   # fit LASSO regression
-  Fit0 = glmnet(y=trainDF$cases,x=xreg, family="gaussian") # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
+  Fit0 = glmnet(y=trainDF$cases[1 : (ltrain - wks_ahead)],x=xreg[1 : (ltrain - wks_ahead), my_input], family="gaussian") # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
                                                           # if alpha=1, ridge regression is used.
 
-  #head(Fit0)
-  #plot(Fit0, label=T)
-  model.fit0 <- predict.glmnet(Fit0, s=su,newx=xreg, type="response") # Arbitrary choice of penalty term lambda
-  
-  # if(pred.tpoint == first.prediction){
-  #   print("yes")
-  # # capture model fit LASSO for plotting
-  # model.fitp <- predict.glmnet(Fit0, s=seq(0,1,0.001),newx=xreg, type="response") # Arbitrary chocie of penalty term lambda; the higher s, the larger the penalty, the lower the number of co-variates accepted
-  # model.fitp <- data_frame(
-  #    pred=as.numeric(model.fitp), 
-  #    se=rep(sd(model.fitp), length(model.fitp))) %>% # Not calculating se correct yet, need to find out how to extract residuals
-  #    mutate(
-  #      t.idx = trainDF$timepoint_reference,
-  #      point.pred = exp(pred) - 1,
-  #      lwr95.pred = exp(pred - qnorm(0.975) * se) - 1,
-  #      upr95.pred = exp(pred + qnorm(0.975) * se) - 1
-  #    )
-  # }
   # Forecast
   forecast.wks.ahead <- 4
-  newx = as.matrix(DF[df_point+1:forecast.wks.ahead,my_input])
+  newx = xreg[(ltrain - wks_ahead + 1):ltrain, my_input]
   forecast <- predict.glmnet(Fit0, n.ahead=forecast.wks.ahead,s=su, 
                            newx=newx)
 
-  # ### calculate mean predictions and 95% CIs
-  # forecast <- as.data.frame(forecast) 
-  # names(forecast) = "pred"
-  # forecast <- forecast %>% mutate(se = sd(pred),
-  #                               t.idx = df_point + 1:forecast.wks.ahead,
-  #                               point.pred = exp(pred) - 1,
-  #                               lwr95.pred = exp(pred - qnorm(0.975) * se) - 1,
-  #                               upr95.pred = exp(pred + qnorm(0.975) * se) - 1
-  # )
-  observed <- DF$x.weighted.ili[df_point+1:4]  
+  ##################################################
+  # example: ARIMA
+  
+  # fit model
+  Fit2 <- Arima(trainDF$cases[1 : (ltrain - wks_ahead)], order=c(1,0,0),
+                seasonal=list(order=c(1,0,0),period=52), lambda = 1)
+  ####
+  ### forecast
+  wks_ahead_arim <- 4
+  ar_predictions <- forecast.Arima(Fit2,4)
+  
+  # observed values
+  observed <- exp(trainDF$cases[(ltrain - wks_ahead + 1):ltrain])-1
+  
   final_predict = forecast # Not extracting the se correct from forecasting
-
   for(s in 1:length(su)){
     # save 1 weeks forecast and observed
     FAO[[s]]$f1w[i] <- exp(final_predict[1,s])-1
@@ -218,39 +214,35 @@ for (pred.tpoint in first.prediction:last.prediction){
     # save 4 weeks forecast and observed
     FAO[[s]]$f4w[i] <- exp(final_predict[4,s])-1
     FAO[[s]]$o4w[i] <- observed[4]
-    }
+  }
+  ### save ARIMA
+  final_predict <- as.numeric(ar_predictions$mean)
+  # save 1 weeks forecast and observed
+  FAOa$f1w[i] <- exp(final_predict[1])-1
+  FAOa$o1w[i] <- observed[1]
+  # save 2 weeks forecast and observed
+  FAOa$f2w[i] <- exp(final_predict[2])-1
+  FAOa$o2w[i] <- observed[2]
+  # save 3 weeks forecast and observed
+  FAOa$f3w[i] <- exp(final_predict[3])-1
+  FAOa$o3w[i] <- observed[3]
+  # save 4 weeks forecast and observed
+  FAOa$f4w[i] <- exp(final_predict[4])-1
+  FAOa$o4w[i] <- observed[4]
 }
+
+
 #####################################################
 # evaluate
-mse_4w = data.frame(cbind(s = unique(su), mse = rep(NA,length(su))))
+mse_LA_4w = data.frame(cbind(s = unique(su), mse = rep(NA,length(su))))
 for(i in 1:length(su)){
-  mse_4w$mse[i] <- mean((FAO[[i]]$o4w - FAO[[i]]$f4w)^2)
+  mse_LA_4w$mse[i] <- mean((FAO[[i]]$o4w - FAO[[i]]$f4w)^2)
 }
-eval <- data.frame(mse_4w=mse_4w)
-                   #,
-                   #mse_AR_4w=mse_AR_4w,
-                   #mse_ref_4w=mse_ref_4w)
+mse_AR_4w <- mean((FAOa$o4w - FAOa$f4w)^2)
+mse_ref_4w <- mean((FAO[[1]]$o4w - lag(FAO[[1]]$o4w,n = 4))^2,na.rm = TRUE)
 
-# plot(FAO$timepoint_reference, FAO$o1w, 
-#      pch=19, cex=0.25,
-#      xlab="date", ylab="cases", main="1-week prediction")
-# lines(FAO$timepoint_reference, FAO$f1w,
-#       col=adjustcolor('darkblue', 0.5), lwd=3)
-# plot(FAO$timepoint_reference+1, FAO$o2w, 
-#      pch=19, cex=0.25,
-#      xlab="date", ylab="cases", main="2-week prediction")
-# lines(FAO$timepoint_reference+1, FAO$f2w,
-#       col=adjustcolor('red', 0.5), lwd=3)
-# plot(FAO$timepoint_reference+2, FAO$o3w, 
-#      pch=19, cex=0.25,
-#      xlab="date", ylab="cases", main="3-week prediction")
-# lines(FAO$timepoint_reference+2, FAO$f3w,
-#       col=adjustcolor('orange', 0.5), lwd=3)
-
-    #legend(710,3.5, c("1-week","2-week","3-week","4-week"),lty=c(1,1,1,1),
-    #   col=c(adjustcolor('darkblue', 0.5),adjustcolor('red', 0.5),
-    #                                                       adjustcolor('orange', 0.5),adjustcolor('green', 0.5)))
-
+#####################################################
+# Plot output
 par(mfrow=c(1,3))
 plot(FAO[[1]]$timepoint_reference+3, FAO[[1]]$o4w, 
      pch=19, cex=0.25,
@@ -262,11 +254,11 @@ for(i in 1:length(su)){
         col=adjustcolor(cols[i], 0.5), lwd=3)
 }
 # Best fitting lambda
-num.l = which(eval$mse_4w.mse==min(eval$mse_4w.mse))
-best.l = eval$mse_4w.s[num.l]
+num.l = which(mse_4w$mse==min(mse_4w$mse))[length(which(mse_4w$mse==min(mse_4w$mse)))]
+best.l = mse_4w$s[num.l]
 
 # Plot best fitting lambda
-plot(eval$mse_4w.s, eval$mse_4w.mse, type="l", main="MSE using different s", xlab="value s", ylab="MSE")
+plot(mse_4w$s, mse_4w$mse, type="l", main="MSE using different s", xlab="value s", ylab="MSE")
 lines(rep(best.l,101),seq(0,1,0.01), lty=2,col="red")
 
 # Plot fit with best fitting lambda
@@ -286,3 +278,7 @@ plot(Fit0, label=T)
 cv.lasso <- cv.glmnet(x=xreg, y=trainDF$cases)
 plot(cv.lasso)  # Best fitting model has 3 parameters
 exp(coef(cv.lasso)) # Season total does not seem to add anything
+eval <- data.frame(mse_LA_4w=mse_LA_4w$mse[num.l],
+                   mse_AR_4w=mse_AR_4w,
+                   mse_ref_4w=mse_ref_4w)
+

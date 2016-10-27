@@ -1,6 +1,11 @@
 #####################################
 # GET CLIMATE DATA
 
+## title: "Forecasting Flu Template"
+## author: "Underdog"
+## date: "19 October 2016"
+
+
 rm(list=ls())
 script_name <- "clim_data"
 # Downloaded from: http://www.ncdc.noaa.gov/temp-and-precip/us-weekly/
