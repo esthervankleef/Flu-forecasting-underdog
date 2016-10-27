@@ -164,10 +164,8 @@ for (pred.tpoint in pred_vector){
   
   ######## 4 weeks-ahead ############
   wks_ahead <- 4
-  
   # train model
   ltrain <- dim(trainDF)[1]
-  #
   Fit1 <- train(x = trainDF[1 : (ltrain - wks_ahead), my_input],
                 y = trainDF$cases[(1 + wks_ahead):ltrain], 
                 method = "rf", 
@@ -177,7 +175,7 @@ for (pred.tpoint in pred_vector){
                 tuneLength = 3,
                 importance = FALSE)
   ### forecast: no longer than the shortest lag!
-  rf_predictions <- predict(Fit1,DF[df_point+1:wks_ahead,my_input]) # point predictions
+  rf_predictions <- predict(Fit1,trainDF[(ltrain - wks_ahead + 1):ltrain, my_input]) # point predictions
   # obtain feature rank
   #varImp(Fit1)
   
@@ -188,7 +186,7 @@ for (pred.tpoint in pred_vector){
   # example: ARIMA
   
   # fit model
-  Fit2 <- Arima(trainDF$cases, order=c(1,0,0),
+  Fit2 <- Arima(trainDF$cases[1 : (ltrain - wks_ahead)], order=c(1,0,0),
                 seasonal=list(order=c(1,0,0),period=52), lambda = 1)
   ####
   ### forecast
@@ -196,7 +194,7 @@ for (pred.tpoint in pred_vector){
   ar_predictions <- forecast.Arima(Fit2,4)
   
   # observed values
-  observed <- DF$x.weighted.ili[df_point+1:4]
+  observed <- trainDF$cases[(ltrain - wks_ahead + 1):ltrain]
   #####################
   ### output
   
