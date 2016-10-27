@@ -34,7 +34,7 @@ DF1 <- DF %>%
 rm(usflu, usflu_allyears, DF)
 # add holidays to the dataframe
 DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
-
+DF1 <- DF2
 ### mutate variables: Add total number of cases from previous season as variable
 # identify where there are 53 weeks 
 week53 = DF1$year[which(DF1$week == 53)]
@@ -72,21 +72,26 @@ add_df[!is.na(add_df)] <- NA
 # add at the bottom
 DF1 <- rbind(DF1,add_df)
 
-# the predictor with shortest lag gives the timepoint_reference
-# lag of 4
-my_lag <- 4
-
-DF1 = DF1[1 : (end.timeline+short_lag),] %>% mutate(timepoint_reference = lag(seq_along(cases), n = 4), # This is created so we can keep track of what data was available at the time from which the predictions are made
-                                        cases_l4 = lag(cases, n = 4),
-                                        dcases_l4 = lag(dcases, n = 4), 
-                                        cases_l5 = lag(cases,n = 5),
-                                        dcases_l5 = lag(dcases,n = 5))
+# the predictor with shortest lag gives lag for the week_name=the week from which we use all data
+# predictors of which we know future values can have shorter lag 
+# shortest lag of 4
+my_shortest_lag <- 4
+#
+DF1 = DF1[1 : (end.timeline+short_lag),] %>% 
+  mutate(ref_weekname = lag(weekname, n = 4),
+         cases_l4 = lag(cases, n = 4),
+         dcases_l4 = lag(dcases, n = 4), 
+         cases_l5 = lag(cases,n = 5),
+         dcases_l5 = lag(dcases,n = 5))
 
 # truncate the NA-tail
-#biggest_lag <- 5 # will introduce NA 
-biggest_lag <- 53 # the season lag produces 53 NAs
-#highest_d <- 2 # a second derivative produces 2 NAs --> I think we only have first derivative which produces one lag; but I suppose this was meant for the variable you said earlier that is 'not needed for now' 
+# the season lag produces 53 NA
+# but even more NA because holidays available form 2011-51
+DF1$weekname
 DF2 <- DF1[(biggest_lag):end.timeline,] 
+
+
+
 
 # decide the time points from where to make first.prediction and last.prediction
 first.prediction <- DF2$timepoint_reference[which(DF2$weekname=="2015-32")] # week from where to make the first prediction
