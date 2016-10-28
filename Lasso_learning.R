@@ -15,7 +15,7 @@ library(forecast)
 library(randomForest)
 library(caret)
 library(glmnet)
-library(MASS); library(tsModel)
+library(MASS)
 
 ########################################
 #### load data
@@ -98,19 +98,20 @@ DF1 <- rbind(DF1,add_df)
 # shortest lag of 4
 my_shortest_lag <- 4
 #
-DF1 <-  DF1[1 : (end.timeline+short_lag),] %>% 
+DF1 <-  DF1[1 : (end.timeline+short_lag),] %>%
   mutate(
     data_weekname = lag(weekname, n = 4), # this is the week from where we use the data
     cases_l4 = lag(cases, n = 4),
-    dcases_l4 = lag(dcases, n = 4), 
+    dcases_l4 = lag(dcases, n = 4),
     cases_l5 = lag(cases,n = 5),
     dcases_l5 = lag(dcases,n = 5),
     kids_cuddle_l2 = lag(inschool,n = 2),
     big_hols_l1= lag(big_holidays,n = 1),
-    sin_week = sin(2*pi*week/52),
-    cos_week = cos(2*pi*week/52)
-  ) %>% 
+    sin_week_l4 = sin(2*pi*week/52),
+    cos_week_l4 = cos(2*pi*week/52)
+  ) %>%
   mutate(
+    week = lag(week,n=4),
     weekname = lag(weekname, n = 4),
     cases = lag(cases, n = 4)
   )
@@ -168,8 +169,7 @@ for (pred.tpoint in pred_vector){
   trainDF <- DF[train_start:df_point,]
   
   # input for the LASSO
-  my_input <- c("week","sin_week","cos_week", "cases_l4","dcases_l4","cases_l5","seas_total_l1",
-                "m_start_seas","m_end_seas","m_peak_seas")
+  my_input <- c("week","cases_l4","dcases_l4","cases_l5","seas_total_l1")
   xreg = as.matrix(trainDF[,my_input])
   
   ######## 4 weeks-ahead ############
@@ -193,15 +193,15 @@ for (pred.tpoint in pred_vector){
   # example: ARIMA
   
   # fit model
-  Fit2 <- Arima(trainDF$cases[(1 + wks_ahead):ltrain], order=c(1,0,0),
-                seasonal=list(order=c(1,0,0),period=52), lambda = 1)
-  ####
-  ### forecast
-  wks_ahead_arim <- 4
-  ar_predictions <- forecast.Arima(Fit2,4)
+  # Fit2 <- Arima(trainDF$cases[(1 + wks_ahead):ltrain], order=c(1,0,0),
+  #               seasonal=list(order=c(1,0,0),period=52), lambda = 1)
+  # ####
+  # ### forecast
+  # wks_ahead_arim <- 4
+  # ar_predictions <- forecast.Arima(Fit2,4)
   
   # observed values
-  observed <- exp(trainDF$cases[(ltrain - wks_ahead + 1):ltrain])-1
+  observed <- exp(DF$cases[df_point + 1:wks_ahead])-1
   
   final_predict = forecast # Not extracting the se correct from forecasting
   for(s in 1:length(su)){
@@ -219,19 +219,19 @@ for (pred.tpoint in pred_vector){
     FAO[[s]]$o4w[i] <- observed[4]
   }
   ### save ARIMA
-  final_predict <- as.numeric(ar_predictions$mean)
-  # save 1 weeks forecast and observed
-  FAOa$f1w[i] <- exp(final_predict[1])-1
-  FAOa$o1w[i] <- observed[1]
-  # save 2 weeks forecast and observed
-  FAOa$f2w[i] <- exp(final_predict[2])-1
-  FAOa$o2w[i] <- observed[2]
-  # save 3 weeks forecast and observed
-  FAOa$f3w[i] <- exp(final_predict[3])-1
-  FAOa$o3w[i] <- observed[3]
-  # save 4 weeks forecast and observed
-  FAOa$f4w[i] <- exp(final_predict[4])-1
-  FAOa$o4w[i] <- observed[4]
+  # final_predict <- as.numeric(ar_predictions$mean)
+  # # save 1 weeks forecast and observed
+  # FAOa$f1w[i] <- exp(final_predict[1])-1
+  # FAOa$o1w[i] <- observed[1]
+  # # save 2 weeks forecast and observed
+  # FAOa$f2w[i] <- exp(final_predict[2])-1
+  # FAOa$o2w[i] <- observed[2]
+  # # save 3 weeks forecast and observed
+  # FAOa$f3w[i] <- exp(final_predict[3])-1
+  # FAOa$o3w[i] <- observed[3]
+  # # save 4 weeks forecast and observed
+  # FAOa$f4w[i] <- exp(final_predict[4])-1
+  # FAOa$o4w[i] <- observed[4]
 }
 
 
@@ -283,6 +283,7 @@ plot(FAO[[num.l]]$timepoint_reference, abs(FAO[[num.l]]$f4w-FAO[[num.l]]$o4w)/FA
 plot(Fit0, label=T)
 cv.lasso <- cv.glmnet(x=xreg, y=trainDF$cases)
 plot(cv.lasso)  # Best fitting model has 3 parameters
+coef(cv.lasso)
 exp(coef(cv.lasso)) # Season total does not seem to add anything
 eval <- data.frame(mse_LA_4w=mse_LA_4w$mse[num.l],
                    mse_AR_4w=mse_AR_4w,
