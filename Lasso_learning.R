@@ -105,6 +105,12 @@ DF1 <-  DF1[1 : (end.timeline+short_lag),] %>%
     dcases_l5 = lag(dcases,n = 5),
     kids_cuddle_l2 = lag(inschool,n = 2),
     big_hols_l1= lag(big_holidays,n = 1),
+    temp_av_l4 = lag(temp_av, n = 4),
+    gfever_l4  = lag(gfever, n = 4),
+    gheadache_l4  = lag(gheadache, n = 4),
+    gdoctor_l4  = lag(gdoctor, n = 4),
+    gshivering_l4  =lag(gshivering, n = 4),
+    gcough_l4  = lag(gcough, n = 4),
     sin_week = sin(2*pi*week/52),
     cos_week = cos(2*pi*week/52)
   ) %>% 
@@ -118,6 +124,7 @@ DF1 <-  DF1[1 : (end.timeline+short_lag),] %>%
 # but even more NA because holidays available form 2011-51
 week_pos <- which(DF1$weekname == "2011-51") + 2 # plus because of lag
 DF2 <- DF1[week_pos:end.timeline,] 
+
 
 # decide the time points from where to make first.prediction and last.prediction
 first.prediction <- "2015-35" # week from where to make the first prediction
@@ -164,10 +171,12 @@ for (pred.tpoint in pred_vector){
   df_point <- pred.tpoint # the data.frame row
   train_start <- train_start_vector[1] # moving window
   trainDF <- DF[train_start:df_point,]
+
   
   # input for the LASSO
   my_input <- c("week","cases_l4","dcases_l4","cases_l5","seas_total_l1",
                 "sin_week","cos_week","kids_cuddle_l2","big_hols_l1")
+  
   xreg = as.matrix(trainDF[,my_input])
   
   ######## 4 weeks-ahead ############
@@ -175,16 +184,22 @@ for (pred.tpoint in pred_vector){
   # train model
   ltrain <- dim(trainDF)[1]
   
+  h_weights = c(2*52)
+  
   # fit LASSO regression
-  Fit0 = glmnet(y=trainDF$cases[(1 + wks_ahead):ltrain],x=xreg[1 : (ltrain - wks_ahead), my_input], family="gaussian") # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
+  Fit0 = glmnet(y=trainDF$cases[(1 + wks_ahead):ltrain],x=xreg[1 : (ltrain - wks_ahead), my_input], family="gaussian",
+                weights=c(rep(1,length(trainDF$cases[(1 + wks_ahead):ltrain])-h_weights), rep(2, h_weights))) # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
                                                           # if alpha=1, ridge regression is used.
+                                                          # Put higher weights on 2 most recent
 
+  cv.lasso <- cv.glmnet(x=xreg[1 : (ltrain - wks_ahead), my_input], y=trainDF$cases[(1 + wks_ahead):ltrain],type.measure = "mse", nfolds = 20)
   # Forecast
   forecast.wks.ahead <- 4
   newx = xreg[(ltrain - wks_ahead + 1):ltrain, my_input]
   forecast <- predict.glmnet(Fit0, n.ahead=forecast.wks.ahead,s=su, 
                            newx=newx)
 
+  
   ##################################################
   # example: ARIMA
   
@@ -279,11 +294,12 @@ plot(FAO[[num.l]]$timepoint_reference, abs(FAO[[num.l]]$f4w-FAO[[num.l]]$o4w)/FA
 # Plot fit with best s
 plot(Fit0, label=T)
 xreg = as.matrix(trainDF[1 : (ltrain - wks_ahead), my_input])
-cv.lasso <- cv.glmnet(x=xreg, y=trainDF$cases[(1 + wks_ahead):ltrain])
+cv.lasso <- cv.glmnet(x=xreg, y=trainDF$cases[(1 + wks_ahead):ltrain],type.measure = "mse", nfolds = 20)
 plot(cv.lasso)  # Best fitting model has 3 parameters
-coef(cv.lasso)
-exp(coef(cv.lasso)) # Season total does not seem to add anything
+coef(cv.lasso) # Season total does not seem to add anything
 eval <- data.frame(mse_LA_4w=mse_LA_4w$mse[num.l],
                    mse_AR_4w=mse_AR_4w,
                    mse_ref_4w=mse_ref_4w)
 eval
+
+
