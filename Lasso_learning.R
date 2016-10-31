@@ -6,7 +6,7 @@
 
 # empty workspace
 rm(list = ls())
-script_name <- "lasso_learning"
+script_name <- "flu_chall_template"
 
 # libraries
 library(tidyverse)
@@ -15,8 +15,6 @@ library(forecast)
 library(randomForest)
 library(caret)
 library(glmnet)
-library(MASS)
-
 ########################################
 #### load data
 # flu data
@@ -98,20 +96,19 @@ DF1 <- rbind(DF1,add_df)
 # shortest lag of 4
 my_shortest_lag <- 4
 #
-DF1 <-  DF1[1 : (end.timeline+short_lag),] %>%
+DF1 <-  DF1[1 : (end.timeline+short_lag),] %>% 
   mutate(
     data_weekname = lag(weekname, n = 4), # this is the week from where we use the data
     cases_l4 = lag(cases, n = 4),
-    dcases_l4 = lag(dcases, n = 4),
+    dcases_l4 = lag(dcases, n = 4), 
     cases_l5 = lag(cases,n = 5),
     dcases_l5 = lag(dcases,n = 5),
     kids_cuddle_l2 = lag(inschool,n = 2),
     big_hols_l1= lag(big_holidays,n = 1),
-    sin_week_l4 = sin(2*pi*week/52),
-    cos_week_l4 = cos(2*pi*week/52)
-  ) %>%
+    sin_week = sin(2*pi*week/52),
+    cos_week = cos(2*pi*week/52)
+  ) %>% 
   mutate(
-    week = lag(week,n=4),
     weekname = lag(weekname, n = 4),
     cases = lag(cases, n = 4)
   )
@@ -165,19 +162,18 @@ for (pred.tpoint in pred_vector){
   ################# model fitting
   # Make train data
   df_point <- pred.tpoint # the data.frame row
-  train_start <- train_start_vector[i] # moving window
+  train_start <- train_start_vector[1] # moving window
   trainDF <- DF[train_start:df_point,]
   
   # input for the LASSO
-  my_input <- c("week","cases_l4","dcases_l4","cases_l5","seas_total_l1")
+  my_input <- c("week","cases_l4","dcases_l4","cases_l5","seas_total_l1",
+                "sin_week","cos_week","kids_cuddle_l2","big_hols_l1")
   xreg = as.matrix(trainDF[,my_input])
   
   ######## 4 weeks-ahead ############
   wks_ahead <- 4
   # train model
   ltrain <- dim(trainDF)[1]
-  
-  
   
   # fit LASSO regression
   Fit0 = glmnet(y=trainDF$cases[(1 + wks_ahead):ltrain],x=xreg[1 : (ltrain - wks_ahead), my_input], family="gaussian") # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
@@ -265,6 +261,7 @@ best.l = mse_LA_4w$s[num.l]
 plot(mse_LA_4w$s, mse_LA_4w$mse, type="l", main="MSE using different s", xlab="value s", ylab="MSE")
 lines(rep(best.l,101),seq(0,1,0.01), lty=2,col="red")
 
+
 # Plot fit with best fitting lambda
 plot(FAO[[num.l]]$timepoint_reference, FAO[[num.l]]$o4w, 
      pch=19, cex=0.25,
@@ -281,7 +278,8 @@ plot(FAO[[num.l]]$timepoint_reference, abs(FAO[[num.l]]$f4w-FAO[[num.l]]$o4w)/FA
 
 # Plot fit with best s
 plot(Fit0, label=T)
-cv.lasso <- cv.glmnet(x=xreg, y=trainDF$cases)
+xreg = as.matrix(trainDF[1 : (ltrain - wks_ahead), my_input])
+cv.lasso <- cv.glmnet(x=xreg, y=trainDF$cases[(1 + wks_ahead):ltrain])
 plot(cv.lasso)  # Best fitting model has 3 parameters
 coef(cv.lasso)
 exp(coef(cv.lasso)) # Season total does not seem to add anything

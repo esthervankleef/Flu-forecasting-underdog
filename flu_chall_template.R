@@ -193,7 +193,7 @@ for (pred.tpoint in pred_vector){
   covars_for_forecast <- trainDF[(ltrain - wks_ahead + 1):ltrain, my_input]
   rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
   # observed values
-  observed <- DF$cases[df_point + 1:wks_ahead]
+  observed <- exp(DF$cases[df_point + 1:wks_ahead])-1
   
   ##################################################
   # SARIMA
