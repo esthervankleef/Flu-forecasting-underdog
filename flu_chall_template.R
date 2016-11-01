@@ -65,11 +65,11 @@ for (pred.tpoint in pred_vector){
   ###############################################
   # make train data
   choose_predictors <- c("sin_week","week","cases","cases","dcases","dcases",
-                         "big_holidays","kids_cuddle",
-                         "gfever","gheadache","gdoctor","gshivering","gcough")
+                         "kids_cuddle","kids_cuddle","kids_cuddle"
+                         )
   choose_lags <- c(0,0,4,5,4,5,
-                   1,2,
-                   4,4,4,4,4)
+                   1,2,3
+                   )
   # make predictor matrix and outcome
   X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
   Y <- DF$cases[tchoice_v]
@@ -82,7 +82,7 @@ for (pred.tpoint in pred_vector){
                 trControl = myfit_control(wks_ahead),
                 verbose = TRUE,
                 tuneGrid = NULL,
-                tuneLength = 4,
+                tuneLength = 6,
                 importance = TRUE)
   # obtain feature rank
   varImp(Fit1)
@@ -90,6 +90,40 @@ for (pred.tpoint in pred_vector){
   tchoice_forc_v <- df_point + 1:wks_ahead
   covars_for_forecast <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_forc_v)
   rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
+  
+  # lag: 3
+  wks_ahead <- 3
+  ###############################################
+  # make train data
+  choose_predictors <- c("sin_week","week","cases","cases","dcases","dcases",
+                         "big_holidays","big_holidays","kids_cuddle","kids_cuddle"
+  )
+  choose_lags <- c(0,0,3,4,3,4,
+                   1,2,1,2
+  )
+  # make predictor matrix and outcome
+  X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
+  Y <- DF$cases[tchoice_v]
+  
+  ###############################################
+  # train RANDOM FOREST
+  Fit1 <- train(x = X,
+                y = Y, 
+                method = "rf", 
+                trControl = myfit_control(wks_ahead),
+                verbose = TRUE,
+                tuneGrid = NULL,
+                tuneLength = 6,
+                importance = TRUE)
+  # obtain feature rank
+  varImp(Fit1)
+  ### forecast: no longer than the shortest lag!
+  tchoice_forc_v <- df_point + 1:wks_ahead
+  covars_for_forecast <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_forc_v)
+  rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
+  
+  
+  
   # observed values 
   observed <- exp(DF$cases[tchoice_forc_v])-1
   
