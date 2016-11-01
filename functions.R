@@ -40,6 +40,19 @@ my_predictors_lag <- function(choose_predictors,choose_lags,name_predictors,DF,t
 }
 ####################################
 
+# Generate bins based on normal distribution
+gen.prob.distr <- function(mean, sd, log.scale, breaks.in) {
+  breaks <- breaks.in
+  if (log.scale) breaks <- log(breaks.in + 1)
+  prob.distr <- numeric(length(breaks))
+  for (i in 1:length(prob.distr)) {
+    prob.distr[i] <- pnorm(breaks[i+1], mean, sd) - pnorm(breaks[i], mean, sd)
+  }
+  prob.distr[length(prob.distr)] <- 1 - pnorm(breaks[length(breaks)], mean, sd)
+  prob.distr <- prob.distr/sum(prob.distr)
+  return(prob.distr)
+}
+
 
 # this function takes in a character data frame and returns the unique non-number elements
 UniqueNonNumbs <- function(a.data.frame){
