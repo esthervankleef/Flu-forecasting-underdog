@@ -419,7 +419,7 @@ for(w in c(1:4)){
                                 newx=covars_for_forecast)
   mean = c(mean, exp(predictions[w])-1)
 }
-pred$mean = mean
+pred$mean = mean 
 
 #####################################################
 # Calculate probability of bins
