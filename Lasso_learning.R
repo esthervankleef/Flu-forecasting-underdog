@@ -417,8 +417,9 @@ last = length(FAO[[best.l]]$f4w)
 prob.forecast = data.frame(cbind(Bin_start_incl = breaks.in,w1 = rep(NA,length(breaks.in)),w2 = rep(NA,length(breaks.in)),
                                  w3 = rep(NA,length(breaks.in)),w4 = rep(NA,length(breaks.in))))
 
+
 png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/density_predictions.png", width=500,height=500)
-par(mfrow=c(2,2))
+ par(mfrow=c(2,2))
 for(w in c(1:4)){
   prob.forecast[,w+1] = gen.prob.distr(mean=unlist(FAO[[best.l]][w*2+1])[last], sd=sd_pred$sd[w], log.scale=T, breaks.in=breaks.in)
   plot(breaks.in,prob.forecast[,w+1], type="l", ylab="density", main=paste0(w,"-weeks prediction density"), xlab="breaks")
