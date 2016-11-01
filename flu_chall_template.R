@@ -40,9 +40,13 @@ DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
 DF3 <- dplyr::left_join(DF2,seas_times,by = "weekname")
 DF4 <- dplyr::left_join(DF3,clim, by="weekname")
 DF5 <- dplyr::left_join(DF4,google, by="weekname")
+no_dates <- is.na(DF5$year)
+DF5$year[no_dates] <- DF5$hyear[no_dates]
+DF5$week[no_dates] <- DF5$hweek[no_dates]
 
 DF1 <- DF5
 
+### identify and remove week 53
 # identify where there are 53 weeks 
 week53 = DF1$year[which(DF1$week == 53)]
 # get rid of 53 week
@@ -74,11 +78,17 @@ seas = DF1%>%group_by(season) %>% summarise(seas_total = sum(cases)) %>% mutate(
 # add as covariate
 DF1 = left_join(DF1, seas, by="season")
 
-### mutate predictive variables: derivatives and lags
 end.timeline <- dim(DF1)[1]
+### mutate predictive variables: derivatives
+DF1 <-  DF1 %>% 
   mutate(
+    cases = cases, # lag 4
+    dcases = c(NA,diff(cases)), # lag 4 # lag 5
+    kids_cuddle = inschool, # lag 2
+    big_hols= big_holidays, # lag 1
     sin_week = sin(2*pi*week/52),
     cos_week = cos(2*pi*week/52)
+    )
 
 # truncate the NA-beginning
 # the season lag produces 53 NA
@@ -89,20 +99,20 @@ DF2 <- DF1[week_pos:end.timeline,]
 # decide the time points from where to make first.prediction and last.prediction
 first.prediction <- "2015-35" # week from where to make the first prediction
 # last.prediction; to validate own predictions we need observed data: then minus shortest lag
-last.prediction <- "2016-35"
+last.prediction <- "2016-34"
 
 # where to put the start given the last prediction
-last.prediction_df <- which(DF2$data_weekname == last.prediction)
-DF2$data_weekname[last.prediction_df - 52]
+last.prediction_df <- which(DF2$weekname == last.prediction)
+DF2$weekname[last.prediction_df - 200]
 
 # make numeric for final training point = prediction point
-prstart <- which(DF2$data_weekname == first.prediction)
-prstop <- which(DF2$data_weekname == last.prediction)
+prstart <- which(DF2$weekname == first.prediction)
+prstop <- which(DF2$weekname == last.prediction)
 # all prediction points
 pred_vector <- prstart:prstop
 
 # start training points
-train_start_vector <- pred_vector - 190
+train_start_vector <- pred_vector - (190 - 10)
 
 ### initiate outputfile
 num.of.pred <- (prstop - prstart) + 1
@@ -110,17 +120,8 @@ num.of.pred <- (prstop - prstart) + 1
 FAO <- data.frame(timepoint_reference = prstart:prstop) # rf
 FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
 
-##### 
-# my own fit control function
-myfit_control <- function(horizon){
-  # fit control timeslices for timeseries, from 2 seasons, horizon 4 weeks
-  fitControl <- trainControl(method = "timeslice",
-                             initialWindow = 40,
-                             horizon = horizon,
-                             fixedWindow = TRUE)
-  return(fitControl)
-}
-  
+##### call functions
+source("functions.R")
 #######################################################
 #### start the prediction loop
 DF <- DF2 # use DF in the loop
@@ -129,32 +130,36 @@ for (pred.tpoint in pred_vector){
   i = i + 1
   print(i) # print where you are in the loop
   
-  ###############################################
-  ################# model fitting
-  # make train data
+  # manage the training position
   df_point <- pred.tpoint # the data.frame row
   train_start <- train_start_vector[i] # moving window
-  trainDF <- DF[train_start:df_point,]
+  # which weeks are those
+  first_week_you_see <- DF$weekname[train_start]
+  last_week_you_see <- DF$weekname[df_point]
+  tchoice_v <- train_start:df_point
   
-  # RANDOM FOREST
-  # decide on the input for the forest
-  my_input <- c("week","cases_l4","dcases_l4",
-                "cases_l5")
-  
-  ######## 4 weeks-ahead ############
+  # lag: 4
   wks_ahead <- 4
-  # train model
-  ltrain <- dim(trainDF)[1]
-  Fit1 <- train(x = trainDF[1 : (ltrain - wks_ahead), my_input],
-                y = trainDF$cases[(1 + wks_ahead):ltrain], 
+  ###############################################
+  # make train data
+  choose_predictors <- c("week","cases","dcases")
+  choose_lags <- c(0,4,5)
+  # make predictor matrix and outcome
+  X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
+  Y <- DF$cases[tchoice_v]
+  
+  ###############################################
+  # train RANDOM FOREST
+  Fit1 <- train(x = X,
+                y = Y, 
                 method = "rf", 
                 trControl = myfit_control(wks_ahead),
                 verbose = TRUE,
-                tuneGrid = NULL, 
+                tuneGrid = NULL,
                 tuneLength = 3,
-                importance = FALSE)
+                importance = TRUE)
   # obtain feature rank
-  #varImp(Fit1)
+  varImp(Fit1)
   ### forecast: no longer than the shortest lag!
   covars_for_forecast <- trainDF[(ltrain - wks_ahead + 1):ltrain, my_input]
   rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
@@ -172,17 +177,22 @@ for (pred.tpoint in pred_vector){
   ar_predictions <- forecast.Arima(Fit2,4)
   
   #####################
+  ### output  
   
   ### save random forest
   final_predict <- rf_predictions
   # save 1 weeks forecast and observed
   FAO$f1w[i] <- exp(final_predict[1])-1
+  FAO$o1w[i] <- observed[1]
   # save 2 weeks forecast and observed
   FAO$f2w[i] <- exp(final_predict[2])-1
+  FAO$o2w[i] <- observed[2]
   # save 3 weeks forecast and observed
   FAO$f3w[i] <- exp(final_predict[3])-1
+  FAO$o3w[i] <- observed[3]
   # save 4 weeks forecast and observed
   FAO$f4w[i] <- exp(final_predict[4])-1
+  FAO$o4w[i] <- observed[4]
   
   ### save ARIMA
   final_predict <- as.numeric(ar_predictions$mean)

@@ -1,5 +1,8 @@
 ######################
 ### my functions
+
+####################################
+# Topic: Statistical learning
 # function that makes regression function and plots
 regplot <- function(x,y,...){
         # fit model
@@ -11,6 +14,32 @@ regplot <- function(x,y,...){
         abline(fit,col="darkred")
 }
 # exp: regplot(Price,Sales,xlab="Price",ylab="Sales",col="darkblue",pch=20)
+# my own fit control function
+myfit_control <- function(horizon){
+  # fit control timeslices for timeseries, from 2 seasons, horizon 4 weeks
+  fitControl <- trainControl(method = "timeslice",
+                             initialWindow = 60,
+                             horizon = horizon,
+                             fixedWindow = TRUE)
+  return(fitControl)
+}
+# my predictor function
+my_predictors_lag <- function(choose_predictors,choose_lags,name_predictors,DF,tchoice_v){
+  name_predictors <- paste(choose_predictors,choose_lags,sep="_")
+  # number of predictors
+  num_pred <- length(choose_predictors)
+  # initiate date frame with first predictor
+  X <- as.data.frame(DF[tchoice_v - choose_lags[1],choose_predictors[1]])
+  names(X)[1] <- name_predictors[1]
+  # loop through the rest
+  for(i in 2:num_pred){
+    X[name_predictors[i]] <- as.data.frame(DF[tchoice_v - choose_lags[i],choose_predictors[i]])
+    X[name_predictors[i]] <- as.data.frame(DF[tchoice_v - choose_lags[i],choose_predictors[i]])
+  }
+  return(X)
+}
+####################################
+
 
 # this function takes in a character data frame and returns the unique non-number elements
 UniqueNonNumbs <- function(a.data.frame){
