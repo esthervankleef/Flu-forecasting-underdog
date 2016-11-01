@@ -396,7 +396,7 @@ dev.off()
 #####################################################
 # Calculate SD of residuals
 
-sd_pred = data.frame(cbind(target = c("1week","2week","3week","4week"), sd = rep(0,4)))
+pred = data.frame(cbind(target = c("1week","2week","3week","4week"),mean = rep(0,4), sd = rep(0,4)))
 
 sd = NULL
 for(w in c(1:4)){
@@ -404,15 +404,27 @@ for(w in c(1:4)){
   best.l =lambda_best$s[w]
   sd = c(sd,sd(unlist(FAO[[best.l]][w*2+1]) - unlist(FAO[[best.l]][w*2])))
 }
+pred$sd = sd
 
-sd_pred$sd = sd
+#####################################################
+# Generate predictions
 
+df_point = which(DF$weekname == "2016-35")
+mean=NULL
+for(w in c(1:4)){
+  wks_ahead = w
+  tchoice_forc_v <- df_point + 1:wks_ahead
+  covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],DF,tchoice_forc_v))
+  predictions <- predict.glmnet(models[[w]], n.ahead=wks_ahead,s=lambda_best$s[w], 
+                                newx=covars_for_forecast)
+  mean = c(mean, exp(predictions[w])-1)
+}
+pred$mean = mean
 
 #####################################################
 # Calculate probability of bins
 
 breaks.in = c(seq(0,13.0,0.1)) # Everything 13 and above will be put together in one bin
-last = length(FAO[[best.l]]$f4w)
 
 prob.forecast = data.frame(cbind(Bin_start_incl = breaks.in,w1 = rep(NA,length(breaks.in)),w2 = rep(NA,length(breaks.in)),
                                  w3 = rep(NA,length(breaks.in)),w4 = rep(NA,length(breaks.in))))
@@ -420,7 +432,7 @@ prob.forecast = data.frame(cbind(Bin_start_incl = breaks.in,w1 = rep(NA,length(b
 png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/density_predictions.png", width=500,height=500)
 par(mfrow=c(2,2))
 for(w in c(1:4)){
-  prob.forecast[,w+1] = gen.prob.distr(mean=unlist(FAO[[best.l]][w*2+1])[last], sd=sd_pred$sd[w], log.scale=T, breaks.in=breaks.in)
+  prob.forecast[,w+1] = gen.prob.distr(mean=pred$mean[w], sd=pred$sd[w], log.scale=T, breaks.in=breaks.in)
   plot(breaks.in,prob.forecast[,w+1], type="l", ylab="density", main=paste0(w,"-weeks prediction density"), xlab="breaks")
 }
 dev.off()
@@ -433,7 +445,7 @@ results.la$Value = NA
 targets = c("1 wk ahead","2 wk ahead","3 wk ahead","4 wk ahead")
 for(w in c(1:4)){
   nat_week = which(results.la$Target==targets[w] & results.la$Location=="US National")
-  point = exp(unlist(FAO[[best.l]][w*2+1])[last])-1
+  point = pred$mean[w]
   results.la$Value[nat_week] = c(point,prob.forecast[,w+1]) 
 }
 
