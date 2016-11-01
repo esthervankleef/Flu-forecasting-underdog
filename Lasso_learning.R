@@ -38,10 +38,19 @@ prstop <- which(DF$weekname == last.prediction)
 pred_vector <- prstart:prstop
 
 # start training points
-train_start_vector <- pred_vector - (190-10)
+#train_start_vector <- pred_vector - (190-10)
+train_start_vector <- pred_vector - (100)
 
 ### initiate outputfile
 num.of.pred <- (prstop - prstart) + 1
+
+### Remove NAs from google data
+googleNA = which(is.na(DF$gdoctor))
+googleNA = googleNA[googleNA<prstop]
+
+g_words = c("gfever","gheadache","gdoctor","gshivering","gcough")
+
+DF[googleNA,g_words] = DF[googleNA-1,g_words]
 
 # forecast 
 one <- list(data.frame(timepoint_reference = prstart:prstop, f1w=NA,o1w=NA,f2w=NA,o2w=NA,f3w=NA,o3w=NA,f4w=NA,o4w=NA))
@@ -73,18 +82,26 @@ for (pred.tpoint in pred_vector){
   ###############################################
   # make train data
   # Choose predictors
-  choose_predictors1 <- c("week","sin_week","cos_week", "cases","cases", "dcases")
-  choose_predictors2 <- c("week","sin_week","cos_week", "cases","cases", "dcases")
-  choose_predictors3 <- c("week","sin_week","cos_week", "cases","cases", "dcases")
-  choose_predictors4 <- c("week","sin_week","cos_week", "cases","cases", "dcases")
+  choose_predictors1 <- c("week","sin_week","cos_week", "cases","cases", "dcases",
+                          "gfever","gheadache","gdoctor","gshivering","gcough",
+                          "big_holidays","inschool","seas_total","temp_av","temp_av")
+  choose_predictors2 <- c("week","sin_week","cos_week", "cases","cases", "dcases",
+                          "gfever","gheadache","gdoctor","gshivering","gcough",
+                          "big_holidays","inschool","seas_total","temp_av","temp_av")
+  choose_predictors3 <- c("week","sin_week","cos_week", "cases","cases", "dcases",
+                          "gfever","gheadache","gdoctor","gshivering","gcough",
+                          "big_holidays","inschool","seas_total","temp_av","temp_av")
+  choose_predictors4 <- c("week","sin_week","cos_week", "cases","cases", "dcases",
+                          "gfever","gheadache","gdoctor","gshivering","gcough",
+                          "big_holidays","inschool","seas_total","temp_av")
   
   preddats = list(choose_predictors1,choose_predictors2,choose_predictors3,choose_predictors4)
   
   # Choose lags
-  choose_lags1 <- c(0,0,0,1,2,2)
-  choose_lags2 <- c(0,0,0,2,3,3)
-  choose_lags3 <- c(0,0,0,3,4,4)
-  choose_lags4 <- c(0,0,0,4,5,5)
+  choose_lags1 <- c(0,0,0,1,2,2,1,1,1,1,1,0,0,1,1,4)
+  choose_lags2 <- c(0,0,0,2,3,3,2,2,2,2,2,0,0,1,2,4)
+  choose_lags3 <- c(0,0,0,3,4,4,3,3,3,3,3,0,0,1,3,4)
+  choose_lags4 <- c(0,0,0,4,5,5,4,4,4,4,4,0,0,1,4)
   
   lagdats = list(choose_lags1,choose_lags2,choose_lags3,choose_lags4)
   
@@ -103,7 +120,7 @@ for (pred.tpoint in pred_vector){
   ###############################################
   # train LASSO
   
-  h_weights = c(2*52) # Put higher weights on last 2 year observations
+  h_weights = c(1*52) # Put higher weights on last 2 year observations
   
   # fit LASSO regression
   
@@ -141,12 +158,12 @@ for (pred.tpoint in pred_vector){
   ##################################################
   # SARIMA
   # fit model
-   Fit2 <- Arima(DF$cases[tchoice_v], order=c(1,0,0),
-               seasonal=list(order=c(1,0,0),period=52))
-  ## forecast
-  wks_ahead_arim <- 4
-  ar_predictions <- forecast.Arima(Fit2,4)
-  
+  #  Fit2 <- Arima(DF$cases[tchoice_v], order=c(1,0,0),
+  #              seasonal=list(order=c(1,0,0),period=52))
+  # ## forecast
+  # wks_ahead_arim <- 4
+  # ar_predictions <- forecast.Arima(Fit2,4)
+  # 
   #####################
   ### output  
   ### save LASSO
@@ -167,22 +184,40 @@ for (pred.tpoint in pred_vector){
   }
   
   # ### save ARIMA
-  final_predict <- as.numeric(ar_predictions$mean)
-  # save 1 weeks forecast and observed
-  FAOa$f1w[i] <- final_predict[1]
-  FAOa$o1w[i] <- observed[1]
-  # save 2 weeks forecast and observed
-  FAOa$f2w[i] <- final_predict[2]
-  FAOa$o2w[i] <- observed[2]
-  # save 3 weeks forecast and observed
-  FAOa$f3w[i] <- final_predict[3]
-  FAOa$o3w[i] <- observed[3]
-  # save 4 weeks forecast and observed
-  FAOa$f4w[i] <- final_predict[4]
-  FAOa$o4w[i] <- observed[4]
-  
+  # final_predict <- as.numeric(ar_predictions$mean)
+  # # save 1 weeks forecast and observed
+  # FAOa$f1w[i] <- final_predict[1]
+  # FAOa$o1w[i] <- observed[1]
+  # # save 2 weeks forecast and observed
+  # FAOa$f2w[i] <- final_predict[2]
+  # FAOa$o2w[i] <- observed[2]
+  # # save 3 weeks forecast and observed
+  # FAOa$f3w[i] <- final_predict[3]
+  # FAOa$o3w[i] <- observed[3]
+  # # save 4 weeks forecast and observed
+  # FAOa$f4w[i] <- final_predict[4]
+  # FAOa$o4w[i] <- observed[4]
+  # 
 } ####### end of loop
 
+#####################################################
+# What is kept in final models (using internal build cross-validation of glmnet)
+tchoice_v <- train_start:df_point
+
+dat_coefs = list()
+par(mfrow=c(2,2))
+for(w in c(1:4)){
+  cv.lasso <- cv.glmnet(x=Xdats[[w]], y=Y,type.measure = "mse", nfolds = 20)
+  coefs = data.frame(beta=rep(NA,length(rownames(coef(cv.lasso)))))
+  
+  plot(cv.lasso, main=paste0(w,"- weeks prediction"))  # Best fitting model has 3 parameters
+  
+  coefs[1] = as.numeric(round(coef(cv.lasso)[,1],3)) 
+  rownames(coefs) = rownames(coef(cv.lasso))
+  
+  dat_coefs[[w]] = coefs
+}
+dat_coefs
 
 #####################################################
 # evaluate
@@ -230,10 +265,10 @@ mse_AR[5] <- mean((FAOa$o4w - FAOa$f4w)^2)
 mse_ref = data.frame(cbind(model = rep("Model0",1), mse1w = rep(NA,1),
                           mse2w = rep(NA,1),mse3w = rep(NA,1),
                           mse4w = rep(NA,1)))
-mse_ref[2] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 1))^2,na.rm = TRUE)
-mse_ref[3] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 2))^2,na.rm = TRUE)
-mse_ref[4] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 3))^2,na.rm = TRUE)
-mse_ref[5] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 4))^2,na.rm = TRUE)
+mse_ref[2] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 1))^2,na.rm = TRUE)
+mse_ref[3] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 2))^2,na.rm = TRUE)
+mse_ref[4] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 3))^2,na.rm = TRUE)
+mse_ref[5] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 4))^2,na.rm = TRUE)
 
 
 
@@ -309,24 +344,7 @@ dev.off()
 # Plot fit with best s
 # plot(Fit0, label=T)
 
-#####################################################
-# What is kept in final models (using internal build cross-validation of glmnet)
-tchoice_v <- train_start:df_point
 
-dat_coefs = list()
-par(mfrow=c(2,2))
-for(w in c(1:4)){
-cv.lasso <- cv.glmnet(x=Xdats[[w]], y=Y,type.measure = "mse", nfolds = 20)
-coefs = data.frame(beta=rep(NA,length(rownames(coef(cv.lasso)))))
-
-plot(cv.lasso, main=paste0(w,"- weeks prediction"))  # Best fitting model has 3 parameters
-
-coefs[1] = as.numeric(round(coef(cv.lasso)[,1],3)) 
-rownames(coefs) = rownames(coef(cv.lasso))
-
-dat_coefs[[w]] = coefs
-}
-dat_coefs
 
 #####################################################
 # Calculate SD of residuals
