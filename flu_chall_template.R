@@ -161,24 +161,23 @@ for (pred.tpoint in pred_vector){
   # obtain feature rank
   varImp(Fit1)
   ### forecast: no longer than the shortest lag!
-  covars_for_forecast <- trainDF[(ltrain - wks_ahead + 1):ltrain, my_input]
+  tchoice_forc_v <- df_point + 1:wks_ahead
+  covars_for_forecast <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_forc_v)
   rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
-  # observed values
-  observed <- exp(DF$cases[df_point + 1:wks_ahead])-1
+  # observed values 
+  observed <- exp(DF$cases[tchoice_forc_v])-1
   
   ##################################################
   # SARIMA
-  
   # fit model
-  Fit2 <- Arima(trainDF$cases[1 : (ltrain - wks_ahead)], order=c(1,0,0),
-                seasonal=list(order=c(1,0,0),period=52), lambda = 1)
+  Fit2 <- Arima(DF$cases[tchoice_v], order=c(1,0,0),
+                seasonal=list(order=c(1,0,0),period=52))
   ### forecast
   wks_ahead_arim <- 4
   ar_predictions <- forecast.Arima(Fit2,4)
   
   #####################
   ### output  
-  
   ### save random forest
   final_predict <- rf_predictions
   # save 1 weeks forecast and observed
@@ -198,16 +197,16 @@ for (pred.tpoint in pred_vector){
   final_predict <- as.numeric(ar_predictions$mean)
   # save 1 weeks forecast and observed
   FAOa$f1w[i] <- exp(final_predict[1])-1
-  FAOa$o1w[i] <- exp(observed[1])-1
+  FAOa$o1w[i] <- observed[1]
   # save 2 weeks forecast and observed
   FAOa$f2w[i] <- exp(final_predict[2])-1
-  FAOa$o2w[i] <- exp(observed[2])-1
+  FAOa$o2w[i] <- observed[2]
   # save 3 weeks forecast and observed
   FAOa$f3w[i] <- exp(final_predict[3])-1
-  FAOa$o3w[i] <- exp(observed[3])-1
+  FAOa$o3w[i] <- observed[3]
   # save 4 weeks forecast and observed
   FAOa$f4w[i] <- exp(final_predict[4])-1
-  FAOa$o4w[i] <- exp(observed[4])-1
+  FAOa$o4w[i] <- observed[4]
   
 } ####### end of loop
 #####################################################
