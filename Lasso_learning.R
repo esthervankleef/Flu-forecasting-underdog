@@ -6,7 +6,7 @@
 
 # empty workspace
 rm(list = ls())
-script_name <- "flu_chall_template"
+script_name <- "lasso_chall_template"
 
 # libraries
 library(tidyverse)
@@ -32,7 +32,7 @@ load("./Data/google_data.Rda")
 # For ARIMA and LASSO yes. Is done in the below
 DF1 <- DF %>% 
   dplyr::select(-region,-region.type) %>% mutate(cases = as.numeric(as.character(x.weighted.ili)),
-                                                 cases = log(cases+1)) # NA is one missing value which was coded as X
+                                                 cases = log(cases + 1)) # NA is one missing value which was coded as X
 # only keep DF
 rm(usflu, usflu_allyears, DF)
 # add holidays to the dataframe
@@ -40,10 +40,13 @@ DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
 DF3 <- dplyr::left_join(DF2,seas_times,by = "weekname")
 DF4 <- dplyr::left_join(DF3,clim, by="weekname")
 DF5 <- dplyr::left_join(DF4,google, by="weekname")
+no_dates <- is.na(DF5$year)
+DF5$year[no_dates] <- DF5$hyear[no_dates]
+DF5$week[no_dates] <- DF5$hweek[no_dates]
 
 DF1 <- DF5
 
-### mutate variables: Add total number of cases from previous season as variable
+### identify and remove week 53
 # identify where there are 53 weeks 
 week53 = DF1$year[which(DF1$week == 53)]
 # get rid of 53 week
@@ -75,48 +78,16 @@ seas = DF1%>%group_by(season) %>% summarise(seas_total = sum(cases)) %>% mutate(
 # add as covariate
 DF1 = left_join(DF1, seas, by="season")
 
-### mutate predictive variables: derivatives and lags
-# get length
 end.timeline <- dim(DF1)[1]
-# make first derivative
-DF1$dcases <- c(NA,diff(DF1$cases)) 
-# makes second derivative
-#DF1$ddcases <- c(NA,diff(DF1$dcases)) # don't need now
-
-# extend the data.frame to fit in lagged variables
-short_lag <- 4
-# make NA data frame
-add_df <- DF1[1:short_lag,]
-add_df[!is.na(add_df)] <- NA 
-# add at the bottom
-DF1 <- rbind(DF1,add_df)
-
-# the predictor with shortest lag gives lag for the week_name=the week from which we use all data
-# predictors of which we know future values can have shorter lag 
-# shortest lag of 4
-my_shortest_lag <- 4
-#
-DF1 <-  DF1[1 : (end.timeline+short_lag),] %>% 
+### mutate predictive variables: derivatives
+DF1 <-  DF1 %>% 
   mutate(
-    data_weekname = lag(weekname, n = 4), # this is the week from where we use the data
-    cases_l4 = lag(cases, n = 4),
-    dcases_l4 = lag(dcases, n = 4), 
-    cases_l5 = lag(cases,n = 5),
-    dcases_l5 = lag(dcases,n = 5),
-    kids_cuddle_l2 = lag(inschool,n = 2),
-    big_hols_l1= lag(big_holidays,n = 1),
-    temp_av_l4 = lag(temp_av, n = 4),
-    gfever_l4  = lag(gfever, n = 4),
-    gheadache_l4  = lag(gheadache, n = 4),
-    gdoctor_l4  = lag(gdoctor, n = 4),
-    gshivering_l4  =lag(gshivering, n = 4),
-    gcough_l4  = lag(gcough, n = 4),
+    cases = cases, # lag 4
+    dcases = c(NA,diff(cases)), # lag 4 # lag 5
+    kids_cuddle = inschool, # lag 2
+    big_hols= big_holidays, # lag 1
     sin_week = sin(2*pi*week/52),
     cos_week = cos(2*pi*week/52)
-  ) %>% 
-  mutate(
-    weekname = lag(weekname, n = 4),
-    cases = lag(cases, n = 4)
   )
 
 # truncate the NA-beginning
@@ -125,24 +96,23 @@ DF1 <-  DF1[1 : (end.timeline+short_lag),] %>%
 week_pos <- which(DF1$weekname == "2011-51") + 2 # plus because of lag
 DF2 <- DF1[week_pos:end.timeline,] 
 
-
 # decide the time points from where to make first.prediction and last.prediction
 first.prediction <- "2015-35" # week from where to make the first prediction
 # last.prediction; to validate own predictions we need observed data: then minus shortest lag
-last.prediction <- "2016-35"
+last.prediction <- "2016-34"
 
 # where to put the start given the last prediction
-last.prediction_df <- which(DF2$data_weekname == last.prediction)
-DF2$data_weekname[last.prediction_df - 52]
+last.prediction_df <- which(DF2$weekname == last.prediction)
+DF2$weekname[last.prediction_df - 200]
 
 # make numeric for final training point = prediction point
-prstart <- which(DF2$data_weekname == first.prediction)
-prstop <- which(DF2$data_weekname == last.prediction)
+prstart <- which(DF2$weekname == first.prediction)
+prstop <- which(DF2$weekname == last.prediction)
 # all prediction points
 pred_vector <- prstart:prstop
 
 # start training points
-train_start_vector <- pred_vector - 190
+train_start_vector <- pred_vector - (190 - 10)
 
 ### initiate outputfile
 num.of.pred <- (prstop - prstart) + 1
@@ -157,6 +127,8 @@ for(i in 1:length(su)){
 
 FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
 
+##### call functions
+source("functions.R")
 #######################################################
 #### start the prediction loop
 DF <- DF2 # use DF in the loop
@@ -165,141 +137,290 @@ for (pred.tpoint in pred_vector){
   i = i + 1
   print(i) # print where you are in the loop
   
-  ###############################################
-  ################# model fitting
-  # Make train data
+  # manage the training position
   df_point <- pred.tpoint # the data.frame row
-  train_start <- train_start_vector[1] # moving window
-  trainDF <- DF[train_start:df_point,]
-
+  train_start <- train_start_vector[i] # moving window
+  # which weeks are those
+  first_week_you_see <- DF$weekname[train_start]
+  last_week_you_see <- DF$weekname[df_point]
+  tchoice_v <- train_start:df_point
   
-  # input for the LASSO
-  my_input <- c("week","cases_l4","dcases_l4","cases_l5","seas_total_l1",
-                "sin_week","cos_week","kids_cuddle_l2","big_hols_l1")
+  ###############################################
+  # make train data
+  # Choose predictors
+  choose_predictors1 <- c("week","sin_week","cos_week", "cases","cases", "dcases")
+  choose_predictors2 <- c("week","sin_week","cos_week", "cases","cases", "dcases")
+  choose_predictors3 <- c("week","sin_week","cos_week", "cases","cases", "dcases")
+  choose_predictors4 <- c("week","sin_week","cos_week", "cases","cases", "dcases")
   
-  xreg = as.matrix(trainDF[,my_input])
+  preddats = list(choose_predictors1,choose_predictors2,choose_predictors3,choose_predictors4)
   
-  ######## 4 weeks-ahead ############
-  wks_ahead <- 4
-  # train model
-  ltrain <- dim(trainDF)[1]
+  # Choose lags
+  choose_lags1 <- c(0,0,0,1,2,1)
+  choose_lags2 <- c(0,0,0,2,3,2)
+  choose_lags3 <- c(0,0,0,3,4,3)
+  choose_lags4 <- c(0,0,0,4,5,4)
+  
+  lagdats = list(choose_lags1,choose_lags2,choose_lags3,choose_lags4)
+  
+  # make predictor matrix 
+  X1 <- as.matrix(my_predictors_lag(choose_predictors1,choose_lags1,name_predictors,DF,tchoice_v))
+  X2 <- as.matrix(my_predictors_lag(choose_predictors2,choose_lags2,name_predictors,DF,tchoice_v))
+  X3 <- as.matrix(my_predictors_lag(choose_predictors3,choose_lags3,name_predictors,DF,tchoice_v))
+  X4 <- as.matrix(my_predictors_lag(choose_predictors4,choose_lags4,name_predictors,DF,tchoice_v))
+  
+  Xdats = list(X1,X2,X3,X4)
+  
+  # Outcome
+  Y <- DF$cases[tchoice_v]
+  
+  
+  ###############################################
+  # train LASSO
   
   h_weights = c(2*52)
   
   # fit LASSO regression
-  Fit0 = glmnet(y=trainDF$cases[(1 + wks_ahead):ltrain],x=xreg[1 : (ltrain - wks_ahead), my_input], family="gaussian",
-                weights=c(rep(1,length(trainDF$cases[(1 + wks_ahead):ltrain])-h_weights), rep(2, h_weights))) # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
-                                                          # if alpha=1, ridge regression is used.
-                                                          # Put higher weights on 2 most recent
-
-  cv.lasso <- cv.glmnet(x=xreg[1 : (ltrain - wks_ahead), my_input], y=trainDF$cases[(1 + wks_ahead):ltrain],type.measure = "mse", nfolds = 20)
+  
+  # 1-week prediction
+  Fit0.1 = glmnet(y=Y,x=X1, family="gaussian",
+                  weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights))) # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
+                                                                            # Put higher weights on last 2 year observations
+  # 2-week prediction
+  Fit0.2 = glmnet(y=Y,x=X2, family="gaussian",
+                  weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights)))
+  # 3-week prediction
+  Fit0.3 = glmnet(y=Y,x=X3, family="gaussian",
+                  weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights))) 
+  # 4-week prediction
+  Fit0.4 = glmnet(y=Y,x=X4, family="gaussian",
+                  weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights))) 
+  
+  models = list(Fit0.1,Fit0.2,Fit0.3,Fit0.4)
+  
   # Forecast
-  forecast.wks.ahead <- 4
-  newx = xreg[(ltrain - wks_ahead + 1):ltrain, my_input]
-  forecast <- predict.glmnet(Fit0, n.ahead=forecast.wks.ahead,s=su, 
-                           newx=newx)
-
+  la.predictions = list()
+  ### forecast: no longer than the shortest lag!
+  for(w in c(1:4)){
+    wks_ahead = w
+    tchoice_forc_v <- df_point + 1:wks_ahead
+    covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],name_predictors,DF,tchoice_forc_v))
+    predictions <- predict.glmnet(models[[w]], n.ahead=wks_ahead,s=su, 
+                                   newx=covars_for_forecast)
+    la.predictions[[w]] = data.frame(predictions)
+  }
+  names(la.predictions) = c("fw1","fw2","fw3","fw4")
+  # observed values 
+  observed <- DF$cases[tchoice_forc_v]
   
   ##################################################
-  # example: ARIMA
-  
+  # SARIMA
   # fit model
-  # Fit2 <- Arima(trainDF$cases[(1 + wks_ahead):ltrain], order=c(1,0,0),
-  #               seasonal=list(order=c(1,0,0),period=52), lambda = 1)
-  # ####
-  # ### forecast
-  # wks_ahead_arim <- 4
-  # ar_predictions <- forecast.Arima(Fit2,4)
+   Fit2 <- Arima(DF$cases[tchoice_v], order=c(1,0,0),
+               seasonal=list(order=c(1,0,0),period=52))
+  ## forecast
+  wks_ahead_arim <- 4
+  ar_predictions <- forecast.Arima(Fit2,4)
   
-  # observed values
-  observed <- exp(DF$cases[df_point + 1:wks_ahead])-1
-  
-  final_predict = forecast # Not extracting the se correct from forecasting
+  #####################
+  ### output  
+  ### save LASSO
+  #final_predict = la_predictions #
   for(s in 1:length(su)){
     # save 1 weeks forecast and observed
-    FAO[[s]]$f1w[i] <- exp(final_predict[1,s])-1
+    FAO[[s]]$f1w[i] <- la.predictions$fw1[[s]]
     FAO[[s]]$o1w[i] <- observed[1]
     # save 2 weeks forecast and observed
-    FAO[[s]]$f2w[i] <- exp(final_predict[2,s])-1
+    FAO[[s]]$f2w[i] <- la.predictions$fw2[[s]][2]
     FAO[[s]]$o2w[i] <- observed[2]
     # save 3 weeks forecast and observed
-    FAO[[s]]$f3w[i] <- exp(final_predict[3,s])-1
+    FAO[[s]]$f3w[i] <- la.predictions$fw3[[s]][3]
     FAO[[s]]$o3w[i] <- observed[3]
     # save 4 weeks forecast and observed
-    FAO[[s]]$f4w[i] <- exp(final_predict[4,s])-1
+    FAO[[s]]$f4w[i] <- la.predictions$fw4[[s]][4]
     FAO[[s]]$o4w[i] <- observed[4]
   }
-  ### save ARIMA
-  # final_predict <- as.numeric(ar_predictions$mean)
-  # # save 1 weeks forecast and observed
-  # FAOa$f1w[i] <- exp(final_predict[1])-1
-  # FAOa$o1w[i] <- observed[1]
-  # # save 2 weeks forecast and observed
-  # FAOa$f2w[i] <- exp(final_predict[2])-1
-  # FAOa$o2w[i] <- observed[2]
-  # # save 3 weeks forecast and observed
-  # FAOa$f3w[i] <- exp(final_predict[3])-1
-  # FAOa$o3w[i] <- observed[3]
-  # # save 4 weeks forecast and observed
-  # FAOa$f4w[i] <- exp(final_predict[4])-1
-  # FAOa$o4w[i] <- observed[4]
-}
+  
+  # ### save ARIMA
+  final_predict <- as.numeric(ar_predictions$mean)
+  # save 1 weeks forecast and observed
+  FAOa$f1w[i] <- final_predict[1]
+  FAOa$o1w[i] <- observed[1]
+  # save 2 weeks forecast and observed
+  FAOa$f2w[i] <- final_predict[2]
+  FAOa$o2w[i] <- observed[2]
+  # save 3 weeks forecast and observed
+  FAOa$f3w[i] <- final_predict[3]
+  FAOa$o3w[i] <- observed[3]
+  # save 4 weeks forecast and observed
+  FAOa$f4w[i] <- final_predict[4]
+  FAOa$o4w[i] <- observed[4]
+  
+} ####### end of loop
 
 
 #####################################################
 # evaluate
-mse_LA_4w = data.frame(cbind(s = unique(su), mse = rep(NA,length(su))))
+
+# LASSO MSE
+mse_LA = data.frame(cbind(s = unique(su), mse1w = rep(NA,length(su)),
+                          mse2w = rep(NA,length(su)),mse3w = rep(NA,length(su)),
+                          mse4w = rep(NA,length(su))))
 for(i in 1:length(su)){
-  mse_LA_4w$mse[i] <- mean((FAO[[i]]$o4w - FAO[[i]]$f4w)^2)
+  mse_LA$mse1w[i] <- mean((FAO[[i]]$o1w - FAO[[i]]$f1w)^2)
+  mse_LA$mse2w[i] <- mean((FAO[[i]]$o2w - FAO[[i]]$f2w)^2)
+  mse_LA$mse3w[i] <- mean((FAO[[i]]$o3w - FAO[[i]]$f3w)^2)
+  mse_LA$mse4w[i] <- mean((FAO[[i]]$o4w - FAO[[i]]$f4w)^2)
 }
-mse_AR_4w <- mean((FAOa$o4w - FAOa$f4w)^2)
-mse_ref_4w <- mean((FAO[[1]]$o4w - lag(FAO[[1]]$o4w,n = 4))^2,na.rm = TRUE)
+
+# Extract best fitting lambda for each target week
+lambda_best = data.frame(target = c("1week","2week","3week","4week"), s=rep(NA,4),s.num=rep(NA,4))
+for(i in 1:4){
+  mse = mse_LA[,i+1]
+  num.l = which(mse==min(mse))[length(which(mse==min(mse)))]
+  best.l = mse_LA$s[num.l]
+  lambda_best[i,c(2,3)] = c(best.l,num.l) 
+}
+
+# Best fitting LASSO mse
+mse_LA_best = data.frame(cbind(model = rep("LASSO",1), mse1w = rep(NA,1),
+                               mse2w = rep(NA,1),mse3w = rep(NA,1),
+                               mse4w = rep(NA,1)))
+
+mse_LA_best[2] <- mse_LA$mse1w[lambda_best$s.num[1]]
+mse_LA_best[3] <- mse_LA$mse2w[lambda_best$s.num[2]]
+mse_LA_best[4] <- mse_LA$mse3w[lambda_best$s.num[3]]
+mse_LA_best[5] <- mse_LA$mse4w[lambda_best$s.num[4]]
+
+# ARIMA MSE
+mse_AR = data.frame(cbind(model = rep("Arima",1), mse1w = rep(NA,1),
+                          mse2w = rep(NA,1),mse3w = rep(NA,1),
+                          mse4w = rep(NA,1)))
+mse_AR[2] <- mean((FAOa$o1w - FAOa$f1w)^2)
+mse_AR[3] <- mean((FAOa$o2w - FAOa$f2w)^2)
+mse_AR[4] <- mean((FAOa$o3w - FAOa$f3w)^2)
+mse_AR[5] <- mean((FAOa$o4w - FAOa$f4w)^2)
+
+# Reference model MSE
+mse_ref = data.frame(cbind(model = rep("Model0",1), mse1w = rep(NA,1),
+                          mse2w = rep(NA,1),mse3w = rep(NA,1),
+                          mse4w = rep(NA,1)))
+mse_ref[2] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 1))^2,na.rm = TRUE)
+mse_ref[3] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 2))^2,na.rm = TRUE)
+mse_ref[4] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 3))^2,na.rm = TRUE)
+mse_ref[5] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 4))^2,na.rm = TRUE)
+
+
+
+# All model mse together
+eval <- rbind(mse_ref,mse_AR,mse_LA_best)
+eval
 
 #####################################################
 # Plot output
-par(mfrow=c(1,3))
-plot(FAO[[1]]$timepoint_reference, FAO[[1]]$o4w, 
+par(mfrow=c(2,2))
+for(w in c(1:4)){
+  plot(FAO[[1]]$timepoint_reference, unlist(FAO[[1]][w*2+1]), 
      pch=19, cex=0.25,
-     xlab="date", ylab="cases", main="4-week prediction")
+     xlab="date", ylab="cases", main=paste0(w,"-week prediction"))
 
 cols<-rainbow(length(su))
 for(i in 1:length(su)){
-  lines(FAO[[i]]$timepoint_reference, FAO[[i]]$f4w,
+  lines(FAO[[i]]$timepoint_reference, unlist(FAO[[i]][w*2]),
         col=adjustcolor(cols[i], 0.5), lwd=3)
+  }
 }
 
-# Best fitting lambda
-num.l = which(mse_LA_4w$mse==min(mse_LA_4w$mse))[length(which(mse_LA_4w$mse==min(mse_LA_4w$mse)))]
-best.l = mse_LA_4w$s[num.l]
-
-# Plot best fitting lambda
-plot(mse_LA_4w$s, mse_LA_4w$mse, type="l", main="MSE using different s", xlab="value s", ylab="MSE")
-lines(rep(best.l,101),seq(0,1,0.01), lty=2,col="red")
-
+par(mfrow=c(2,2))
+for(w in c(1:4)){
+  plot(mse_LA$s, mse_LA[,w+1], type="l", main=paste0("MSE ",w,"-week prediction using different s"), xlab="value s", ylab="MSE")
+  lines(rep(lambda_best$s[w],101),seq(0,1,0.01), lty=2,col="red")
+}
 
 # Plot fit with best fitting lambda
-plot(FAO[[num.l]]$timepoint_reference, FAO[[num.l]]$o4w, 
+cols<-c("blue","green","red","orange","purple")
+par(mfrow=c(2,2))
+for(w in c(1:4)){
+  num.l = lambda_best$s.num[w]
+  best.l =lambda_best$s[w]
+  plot(FAO[[1]]$timepoint_reference, unlist(FAO[[num.l]]$o4w), 
      pch=19, cex=0.25,
-     xlab="date", ylab="cases", main=paste("4-week prediction best s =", best.l))
-lines(FAO[[num.l]]$timepoint_reference, FAO[[num.l]]$f4w,
-      col=adjustcolor(cols[num.l], 0.5), lwd=3)
-lines(FAOa$timepoint_reference, FAOa$f4w,
-      col=adjustcolor(cols[2], 0.5), lwd=3)
+     xlab="date", ylab="cases", main=paste0(w,"-week prediction best s = ", best.l))
+  lines(FAO[[num.l]]$timepoint_reference, unlist(FAO[[num.l]][w*2]),
+      col=adjustcolor(cols[w], 0.5), lwd=3)
+  lines(FAOa$timepoint_reference, FAOa[,w*2],
+      col=adjustcolor(cols[5], 0.5), lwd=3)
+}
 
 # Plot absolute errors
-plot(FAO[[num.l]]$timepoint_reference, abs(FAO[[num.l]]$f4w-FAO[[num.l]]$o4w)/FAO[[num.l]]$o4w, 
-     pch=19, cex=0.25,
-     xlab="date", ylab="cases", main=paste("4-week prediction best s =", best.l))
-
+# par(mfrow=c(2,2))
+# for(w in c(1:4)){
+#   num.l = lambda_best$s.num[i]
+#   best.l =lambda_best$s[i]
+#   plot(FAO[[num.l]]$timepoint_reference, abs(unlist(FAO[[num.l]][w*2])-unlist(FAO[[num.l]][w*2+1]))/unlist(FAO[[num.l]][w*2+1]), 
+#      pch=19, cex=0.25,
+#      xlab="date", ylab="cases", main=paste0(i,"-week prediction best s = ", best.l))
+# }
 # Plot fit with best s
-plot(Fit0, label=T)
-xreg = as.matrix(trainDF[1 : (ltrain - wks_ahead), my_input])
-cv.lasso <- cv.glmnet(x=xreg, y=trainDF$cases[(1 + wks_ahead):ltrain],type.measure = "mse", nfolds = 20)
-plot(cv.lasso)  # Best fitting model has 3 parameters
-coef(cv.lasso) # Season total does not seem to add anything
-eval <- data.frame(mse_LA_4w=mse_LA_4w$mse[num.l],
-                   mse_AR_4w=mse_AR_4w,
-                   mse_ref_4w=mse_ref_4w)
-eval
+# plot(Fit0, label=T)
+# tchoice_v <- train_start:df_point
+# 
+# X <- as.matrix(my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v))
+# Y <- DF$cases[tchoice_v]
+# 
+# cv.lasso <- cv.glmnet(x=X, y=Y,type.measure = "mse", nfolds = 20)
+# plot(cv.lasso)  # Best fitting model has 3 parameters
+# coef(cv.lasso) # Season total does not seem to add anything
 
 
+#####################################################
+# Calculate SD of residuals
+# check normality
+par(mfrow=c(2,2))
+for(w in c(1:4)){
+  num.l = lambda_best$s.num[w]
+  best.l =lambda_best$s[w]
+  hist(unlist(FAO[[best.l]][w*2+1]) - unlist(FAO[[best.l]][w*2]), main=paste0(w,"-weeks distribution residuals"),xlab="Residuals")
+}
+
+sd_pred = data.frame(cbind(target = c("1week","2week","3week","4week"), sd = rep(0,4)))
+
+sd = NULL
+for(w in c(1:4)){
+  num.l = lambda_best$s.num[w]
+  best.l =lambda_best$s[w]
+  sd = c(sd,sd(unlist(FAO[[best.l]][w*2+1]) - unlist(FAO[[best.l]][w*2])))
+}
+
+sd_pred$sd = sd
+
+
+#####################################################
+# Calculate probability of bins
+
+breaks.in = c(seq(0,13.0,0.1)) # Everything 13 and above will be put together in one bin
+last = length(FAO[[best.l]]$f4w)
+
+prob.forecast = data.frame(cbind(Bin_start_incl = breaks.in,w1 = rep(NA,length(breaks.in)),w2 = rep(NA,length(breaks.in)),
+                                 w3 = rep(NA,length(breaks.in)),w4 = rep(NA,length(breaks.in))))
+par(mfrow=c(2,2))
+for(w in c(1:4)){
+  prob.forecast[,w+1] = gen.prob.distr(mean=unlist(FAO[[best.l]][w*2+1])[last], sd=sd_pred$sd[w], log.scale=T, breaks.in=breaks.in)
+  plot(breaks.in,prob.forecast[,w+1], type="l", ylab="density", main=paste0(w,"-weeks prediction density"), xlab="breaks")
+}
+
+
+#####################################################
+# Store forecasts
+results.la = read.csv("./Forecasts/Submission_template.csv")
+results.la$Value = NA
+
+targets = c("1 wk ahead","2 wk ahead","3 wk ahead","4 wk ahead")
+for(w in c(1:4)){
+  nat_week = which(results.la$Target==targets[w] & results.la$Location=="US National")
+  results.la$Value[nat_week] = c(unlist(FAO[[best.l]][w*2+1])[last],prob.forecast[,w+1]) 
+}
+#####################################################
+# Save file
+savename <- paste0("./Forecasts/", script_name, ".csv")
+write.csv(results.la,file = savename)
