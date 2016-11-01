@@ -15,104 +15,30 @@ library(forecast)
 library(randomForest)
 library(caret)
 library(glmnet)
+
 ########################################
 #### load data
 # flu data
-load("./Data/data_manip.Rda")
-DF <- usflu # already truncated and without NA (otherwise use usflu_allyears)
-# holiday data
-load("./Data/school_holidays.Rda")
-load("./Data/clim_data.Rda")
-load("./Data/seas_times.Rda")
-load("./Data/google_data.Rda")
+load("./Data/data_manip_2.Rda")
 
-#######################################################
-# log transform data
-# DO WE NEED TO LOG-TRANSFORM?
-# For ARIMA and LASSO yes. Is done in the below
-DF1 <- DF %>% 
-  dplyr::select(-region,-region.type) %>% mutate(cases = as.numeric(as.character(x.weighted.ili)),
-                                                 cases = log(cases + 1)) # NA is one missing value which was coded as X
-# only keep DF
-rm(usflu, usflu_allyears, DF)
-# add holidays to the dataframe
-DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
-DF3 <- dplyr::left_join(DF2,seas_times,by = "weekname")
-DF4 <- dplyr::left_join(DF3,clim, by="weekname")
-DF5 <- dplyr::left_join(DF4,google, by="weekname")
-no_dates <- is.na(DF5$year)
-DF5$year[no_dates] <- DF5$hyear[no_dates]
-DF5$week[no_dates] <- DF5$hweek[no_dates]
-
-DF1 <- DF5
-
-### identify and remove week 53
-# identify where there are 53 weeks 
-week53 = DF1$year[which(DF1$week == 53)]
-# get rid of 53 week
-week53_names <- paste(week53,"53",sep="-")
-where_week53 <- which(DF1$weekname %in% week53_names)
-#
-my_vars <- c("x.weighted.ili","ilitotal",
-             "total.patients","cases","big_holidays","inschool","m_start_seas",
-             "m_end_seas","m_peak_seas","temp_av","temp_anom_av",
-             "gfever","gheadache","gdoctor","gshivering","gcough")
-
-# take the mean
-DF1[where_week53-1,my_vars] <- (DF1[where_week53-1,my_vars] + DF1[where_week53,my_vars])/2
-# remove week 53
-DF1 <- DF1[-where_week53,]
-
-# give each timepoint the season name, assuming that the dataframe start at the start of a season
-season=NULL
-for(i in 1:(length(unique(DF1$year))-0)){
-  s = rep(i,52)
-  season = c(season,s)
-}
-# 
-season <- season[1:dim(DF1)[1]]
-DF1$season = season
-
-# create a sum over seasons 
-seas = DF1%>%group_by(season) %>% summarise(seas_total = sum(cases)) %>% mutate(seas_total_l1=lag(seas_total,1))
-# add as covariate
-DF1 = left_join(DF1, seas, by="season")
-
-end.timeline <- dim(DF1)[1]
-### mutate predictive variables: derivatives
-DF1 <-  DF1 %>% 
-  mutate(
-    cases = cases, # lag 4
-    dcases = c(NA,diff(cases)), # lag 4 # lag 5
-    kids_cuddle = inschool, # lag 2
-    big_hols= big_holidays, # lag 1
-    sin_week = sin(2*pi*week/52),
-    cos_week = cos(2*pi*week/52)
-  )
-
-# truncate the NA-beginning
-# the season lag produces 53 NA
-# but even more NA because holidays available form 2011-51
-week_pos <- which(DF1$weekname == "2011-51") + 2 # plus because of lag
-DF2 <- DF1[week_pos:end.timeline,] 
-
+############################################
+### make timepoints
 # decide the time points from where to make first.prediction and last.prediction
 first.prediction <- "2015-35" # week from where to make the first prediction
 # last.prediction; to validate own predictions we need observed data: then minus shortest lag
 last.prediction <- "2016-34"
-
 # where to put the start given the last prediction
-last.prediction_df <- which(DF2$weekname == last.prediction)
-DF2$weekname[last.prediction_df - 200]
+last.prediction_df <- which(DF$weekname == last.prediction)
+DF$weekname[last.prediction_df - 200]
 
 # make numeric for final training point = prediction point
-prstart <- which(DF2$weekname == first.prediction)
-prstop <- which(DF2$weekname == last.prediction)
+prstart <- which(DF$weekname == first.prediction)
+prstop <- which(DF$weekname == last.prediction)
 # all prediction points
 pred_vector <- prstart:prstop
 
 # start training points
-train_start_vector <- pred_vector - (190 - 10)
+train_start_vector <- pred_vector - (190-10)
 
 ### initiate outputfile
 num.of.pred <- (prstop - prstart) + 1
@@ -131,7 +57,6 @@ FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
 source("functions.R")
 #######################################################
 #### start the prediction loop
-DF <- DF2 # use DF in the loop
 i <- 0
 for (pred.tpoint in pred_vector){
   i = i + 1
@@ -164,10 +89,10 @@ for (pred.tpoint in pred_vector){
   lagdats = list(choose_lags1,choose_lags2,choose_lags3,choose_lags4)
   
   # make predictor matrix 
-  X1 <- as.matrix(my_predictors_lag(choose_predictors1,choose_lags1,DF,tchoice_v))
-  X2 <- as.matrix(my_predictors_lag(choose_predictors2,choose_lags2,DF,tchoice_v))
-  X3 <- as.matrix(my_predictors_lag(choose_predictors3,choose_lags3,DF,tchoice_v))
-  X4 <- as.matrix(my_predictors_lag(choose_predictors4,choose_lags4,DF,tchoice_v))
+  X1 <- as.matrix(my_predictors_lag(choose_predictors1,choose_lags1,name_predictors,DF,tchoice_v))
+  X2 <- as.matrix(my_predictors_lag(choose_predictors2,choose_lags2,name_predictors,DF,tchoice_v))
+  X3 <- as.matrix(my_predictors_lag(choose_predictors3,choose_lags3,name_predictors,DF,tchoice_v))
+  X4 <- as.matrix(my_predictors_lag(choose_predictors4,choose_lags4,name_predictors,DF,tchoice_v))
   
   Xdats = list(X1,X2,X3,X4)
   
@@ -178,14 +103,14 @@ for (pred.tpoint in pred_vector){
   ###############################################
   # train LASSO
   
-  h_weights = c(2*52)
+  h_weights = c(2*52) # Put higher weights on last 2 year observations
   
   # fit LASSO regression
   
   # 1-week prediction
   Fit0.1 = glmnet(y=Y,x=X1, family="gaussian",
                   weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights))) # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
-                                                                            # Put higher weights on last 2 year observations
+                                                                            
   # 2-week prediction
   Fit0.2 = glmnet(y=Y,x=X2, family="gaussian",
                   weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights)))
@@ -204,7 +129,7 @@ for (pred.tpoint in pred_vector){
   for(w in c(1:4)){
     wks_ahead = w
     tchoice_forc_v <- df_point + 1:wks_ahead
-    covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],DF,tchoice_forc_v))
+    covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],name_predictors,DF,tchoice_forc_v))
     predictions <- predict.glmnet(models[[w]], n.ahead=wks_ahead,s=su, 
                                    newx=covars_for_forecast)
     la.predictions[[w]] = data.frame(predictions)
@@ -368,7 +293,7 @@ par(mfrow=c(2,2))
 for(w in c(1:4)){
   num.l = lambda_best$s.num[w]
   best.l =lambda_best$s[w]
-  hist(unlist(FAO[[best.l]][w*2+1]) - unlist(FAO[[best.l]][w*2]), main=paste0(w,"-weeks distribution residuals"),xlab="Residuals")
+  hist(unlist(FAO[[num.l]][w*2+1]) - unlist(FAO[[num.l]][w*2]), main=paste0(w,"-weeks distribution residuals"),xlab="Residuals")
 }
 dev.off()
 
@@ -383,15 +308,25 @@ dev.off()
 # }
 # Plot fit with best s
 # plot(Fit0, label=T)
-# tchoice_v <- train_start:df_point
-# 
-# X <- as.matrix(my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v))
-# Y <- DF$cases[tchoice_v]
-# 
-# cv.lasso <- cv.glmnet(x=X, y=Y,type.measure = "mse", nfolds = 20)
-# plot(cv.lasso)  # Best fitting model has 3 parameters
-# coef(cv.lasso) # Season total does not seem to add anything
 
+#####################################################
+# What is kept in final models (using internal build cross-validation of glmnet)
+tchoice_v <- train_start:df_point
+
+dat_coefs = list()
+par(mfrow=c(2,2))
+for(w in c(1:4)){
+cv.lasso <- cv.glmnet(x=Xdats[[w]], y=Y,type.measure = "mse", nfolds = 20)
+coefs = data.frame(beta=rep(NA,length(rownames(coef(cv.lasso)))))
+
+plot(cv.lasso, main=paste0(w,"- weeks prediction"))  # Best fitting model has 3 parameters
+
+coefs[1] = as.numeric(round(coef(cv.lasso)[,1],3)) 
+rownames(coefs) = rownames(coef(cv.lasso))
+
+dat_coefs[[w]] = coefs
+}
+dat_coefs
 
 #####################################################
 # Calculate SD of residuals
@@ -402,7 +337,7 @@ sd = NULL
 for(w in c(1:4)){
   num.l = lambda_best$s.num[w]
   best.l =lambda_best$s[w]
-  sd = c(sd,sd(unlist(FAO[[best.l]][w*2+1]) - unlist(FAO[[best.l]][w*2])))
+  sd = c(sd,sd(unlist(FAO[[num.l]][w*2+1]) - unlist(FAO[[num.l]][w*2])))
 }
 pred$sd = sd
 
@@ -414,7 +349,7 @@ mean=NULL
 for(w in c(1:4)){
   wks_ahead = w
   tchoice_forc_v <- df_point + 1:wks_ahead
-  covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],DF,tchoice_forc_v))
+  covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],name_predictors,DF,tchoice_forc_v))
   predictions <- predict.glmnet(models[[w]], n.ahead=wks_ahead,s=lambda_best$s[w], 
                                 newx=covars_for_forecast)
   mean = c(mean, predictions[w])
