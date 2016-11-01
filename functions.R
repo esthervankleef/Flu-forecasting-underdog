@@ -13,7 +13,7 @@ my_randomforest <- function(wks_ahead,choose_predictors,choose_lags){
   # make train data
   
   # make predictor matrix and outcome
-  X <- my_predictors_lag(choose_predictors,choose_lags,DF,tchoice_v)
+  X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
   Y <- DF$cases[tchoice_v]
   ###############################################
   # train RANDOM FOREST
@@ -29,7 +29,7 @@ my_randomforest <- function(wks_ahead,choose_predictors,choose_lags){
   #varImp(Fit1)
   ### forecast: no longer than the shortest lag!
   tchoice_forc_v <- df_point + 1:wks_ahead
-  covars_for_forecast <- my_predictors_lag(choose_predictors,choose_lags,DF,tchoice_forc_v)
+  covars_for_forecast <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_forc_v)
   rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
   return(rf_predictions[wks_ahead])
 }
@@ -50,7 +50,7 @@ regplot <- function(x,y,...){
 myfit_control <- function(horizon){
   # fit control timeslices for timeseries, from 2 seasons, horizon 4 weeks
   fitControl <- trainControl(method = "timeslice",
-                             initialWindow = 60,
+                             initialWindow = 52,
                              horizon = horizon,
                              fixedWindow = TRUE)
   return(fitControl)

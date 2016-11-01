@@ -105,11 +105,11 @@ for (pred.tpoint in pred_vector){
   # lag: 1
   wks_ahead <- 1
   # 
-  choose_predictors <- c("sin_week","week","cases","cases","cases","dcases",
-                         "temp_av","temp_av"
+  choose_predictors <- c("sin_week","week","cases","cases","dcases","dcases",
+                         "temp_av","temp_av","kids_cuddle"
   )
-  choose_lags <- c(0,0,1,2,3,1,
-                   1,2
+  choose_lags <- c(0,0,1,2,1,2,
+                   1,2,1
   )
   #
   rf_w1_pred <- my_randomforest(wks_ahead,choose_predictors,choose_lags)
@@ -164,12 +164,35 @@ for (pred.tpoint in pred_vector){
 } ####### end of loop
 #####################################################
 # evaluate
-mse_rf_4w <- mean((FAO$o4w - FAO$f4w)^2)
-mse_AR_4w <- mean((FAOa$o4w - FAOa$f4w)^2)
-mse_ref_4w <- mean((FAO$o4w - lag(FAO$o4w,n = 4))^2,na.rm = TRUE)
-eval <- data.frame(mse_rf_4w=mse_rf_4w,
-                   mse_AR_4w=mse_AR_4w,
-                   mse_ref_4w=mse_ref_4w)
+
+# RF MSE
+mse_RF = data.frame(cbind(model = rep("Random Forest",1), mse1w = rep(NA,1),
+                          mse2w = rep(NA,1),mse3w = rep(NA,1),
+                          mse4w = rep(NA,1)))
+mse_RF[2] <- mean((FAO$o1w - FAO$f1w)^2)
+mse_RF[3] <- mean((FAO$o2w - FAO$f2w)^2)
+mse_RF[4] <- mean((FAO$o3w - FAO$f3w)^2)
+mse_RF[5] <- mean((FAO$o4w - FAO$f4w)^2)
+
+# ARIMA MSE
+mse_AR = data.frame(cbind(model = rep("Arima",1), mse1w = rep(NA,1),
+                          mse2w = rep(NA,1),mse3w = rep(NA,1),
+                          mse4w = rep(NA,1)))
+mse_AR[2] <- mean((FAOa$o1w - FAOa$f1w)^2)
+mse_AR[3] <- mean((FAOa$o2w - FAOa$f2w)^2)
+mse_AR[4] <- mean((FAOa$o3w - FAOa$f3w)^2)
+mse_AR[5] <- mean((FAOa$o4w - FAOa$f4w)^2)
+
+# Reference model MSE
+mse_ref = data.frame(cbind(model = rep("Model0",1), mse1w = rep(NA,1),
+                           mse2w = rep(NA,1),mse3w = rep(NA,1),
+                           mse4w = rep(NA,1)))
+mse_ref[2] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 1))^2,na.rm = TRUE)
+mse_ref[3] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 2))^2,na.rm = TRUE)
+mse_ref[4] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 3))^2,na.rm = TRUE)
+mse_ref[5] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 4))^2,na.rm = TRUE)
+# bind together
+eval <- rbind(mse_ref,mse_RF,mse_AR)
 
 ########################################
 #### save & load
@@ -194,5 +217,9 @@ my_title <- paste("SARIMA 4-weeks, MSE =", as.character(round(mse_AR_4w,digits =
 plot(FAOa$timepoint_reference,FAOa$o4w,pch=19, col="black"); title(my_title)
 points(FAOa$timepoint_reference,FAOa$f4w,pch=20,col="darkred")
 par(mfrow=c(1,1)) 
+
+#####################################################
+# get standard error
+
 
 #write.csv(outputfile,file="./Data/DARIMA_forecastsRF_11.csv",row.names = FALSE)
