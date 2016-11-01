@@ -164,10 +164,10 @@ for (pred.tpoint in pred_vector){
   lagdats = list(choose_lags1,choose_lags2,choose_lags3,choose_lags4)
   
   # make predictor matrix 
-  X1 <- as.matrix(my_predictors_lag(choose_predictors1,choose_lags1,name_predictors,DF,tchoice_v))
-  X2 <- as.matrix(my_predictors_lag(choose_predictors2,choose_lags2,name_predictors,DF,tchoice_v))
-  X3 <- as.matrix(my_predictors_lag(choose_predictors3,choose_lags3,name_predictors,DF,tchoice_v))
-  X4 <- as.matrix(my_predictors_lag(choose_predictors4,choose_lags4,name_predictors,DF,tchoice_v))
+  X1 <- as.matrix(my_predictors_lag(choose_predictors1,choose_lags1,DF,tchoice_v))
+  X2 <- as.matrix(my_predictors_lag(choose_predictors2,choose_lags2,DF,tchoice_v))
+  X3 <- as.matrix(my_predictors_lag(choose_predictors3,choose_lags3,DF,tchoice_v))
+  X4 <- as.matrix(my_predictors_lag(choose_predictors4,choose_lags4,DF,tchoice_v))
   
   Xdats = list(X1,X2,X3,X4)
   
@@ -204,7 +204,7 @@ for (pred.tpoint in pred_vector){
   for(w in c(1:4)){
     wks_ahead = w
     tchoice_forc_v <- df_point + 1:wks_ahead
-    covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],name_predictors,DF,tchoice_forc_v))
+    covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],DF,tchoice_forc_v))
     predictions <- predict.glmnet(models[[w]], n.ahead=wks_ahead,s=su, 
                                    newx=covars_for_forecast)
     la.predictions[[w]] = data.frame(predictions)
