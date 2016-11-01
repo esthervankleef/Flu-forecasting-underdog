@@ -417,7 +417,7 @@ for(w in c(1:4)){
   covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],DF,tchoice_forc_v))
   predictions <- predict.glmnet(models[[w]], n.ahead=wks_ahead,s=lambda_best$s[w], 
                                 newx=covars_for_forecast)
-  mean = c(mean, exp(predictions[w])-1)
+  mean = c(mean, predictions[w])
 }
 pred$mean = mean 
 
@@ -446,7 +446,7 @@ results.la$Value = NA
 targets = c("1 wk ahead","2 wk ahead","3 wk ahead","4 wk ahead")
 for(w in c(1:4)){
   nat_week = which(results.la$Target==targets[w] & results.la$Location=="US National")
-  point = pred$mean[w]
+  point = exp(pred$mean[w])-1
   results.la$Value[nat_week] = c(point,prob.forecast[,w+1]) 
 }
 
