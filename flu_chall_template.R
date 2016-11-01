@@ -64,9 +64,12 @@ for (pred.tpoint in pred_vector){
   wks_ahead <- 4
   ###############################################
   # make train data
-  choose_predictors <- c("week","cases","cases","dcases","dcases",
-                         "big_holidays","kids_cuddle")
-  choose_lags <- c(0,4,5)
+  choose_predictors <- c("sin_week","week","cases","cases","dcases","dcases",
+                         "big_holidays","kids_cuddle",
+                         "gfever","gheadache","gdoctor","gshivering","gcough")
+  choose_lags <- c(0,0,4,5,4,5,
+                   1,2,
+                   4,4,4,4,4)
   # make predictor matrix and outcome
   X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
   Y <- DF$cases[tchoice_v]
@@ -79,7 +82,7 @@ for (pred.tpoint in pred_vector){
                 trControl = myfit_control(wks_ahead),
                 verbose = TRUE,
                 tuneGrid = NULL,
-                tuneLength = 3,
+                tuneLength = 4,
                 importance = TRUE)
   # obtain feature rank
   varImp(Fit1)
