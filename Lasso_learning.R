@@ -156,10 +156,10 @@ for (pred.tpoint in pred_vector){
   preddats = list(choose_predictors1,choose_predictors2,choose_predictors3,choose_predictors4)
   
   # Choose lags
-  choose_lags1 <- c(0,0,0,1,2,1)
-  choose_lags2 <- c(0,0,0,2,3,2)
-  choose_lags3 <- c(0,0,0,3,4,3)
-  choose_lags4 <- c(0,0,0,4,5,4)
+  choose_lags1 <- c(0,0,0,1,2,2)
+  choose_lags2 <- c(0,0,0,2,3,3)
+  choose_lags3 <- c(0,0,0,3,4,4)
+  choose_lags4 <- c(0,0,0,4,5,5)
   
   lagdats = list(choose_lags1,choose_lags2,choose_lags3,choose_lags4)
   
@@ -262,7 +262,7 @@ for (pred.tpoint in pred_vector){
 #####################################################
 # evaluate
 
-# LASSO MSE
+# LASSO MSE - generates for each seperate value of s an mse
 mse_LA = data.frame(cbind(s = unique(su), mse1w = rep(NA,length(su)),
                           mse2w = rep(NA,length(su)),mse3w = rep(NA,length(su)),
                           mse4w = rep(NA,length(su))))
@@ -282,7 +282,7 @@ for(i in 1:4){
   lambda_best[i,c(2,3)] = c(best.l,num.l) 
 }
 
-# Best fitting LASSO mse
+# LASSO mse with best lambda
 mse_LA_best = data.frame(cbind(model = rep("LASSO",1), mse1w = rep(NA,1),
                                mse2w = rep(NA,1),mse3w = rep(NA,1),
                                mse4w = rep(NA,1)))
