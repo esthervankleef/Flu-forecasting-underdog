@@ -32,7 +32,7 @@ load("./Data/google_data.Rda")
 # For ARIMA and LASSO yes. Is done in the below
 DF1 <- DF %>% 
   dplyr::select(-region,-region.type) %>% mutate(cases = as.numeric(as.character(x.weighted.ili)),
-                                                 cases = log(cases+1)) # NA is one missing value which was coded as X
+                                                 cases = log(cases + 1)) # NA is one missing value which was coded as X
 # only keep DF
 rm(usflu, usflu_allyears, DF)
 # add holidays to the dataframe
@@ -43,7 +43,6 @@ DF5 <- dplyr::left_join(DF4,google, by="weekname")
 
 DF1 <- DF5
 
-### mutate variables: Add total number of cases from previous season as variable
 # identify where there are 53 weeks 
 week53 = DF1$year[which(DF1$week == 53)]
 # get rid of 53 week
@@ -76,42 +75,10 @@ seas = DF1%>%group_by(season) %>% summarise(seas_total = sum(cases)) %>% mutate(
 DF1 = left_join(DF1, seas, by="season")
 
 ### mutate predictive variables: derivatives and lags
-# get length
 end.timeline <- dim(DF1)[1]
-# make first derivative
-DF1$dcases <- c(NA,diff(DF1$cases)) 
-# makes second derivative
-#DF1$ddcases <- c(NA,diff(DF1$dcases)) # don't need now
-
-# extend the data.frame to fit in lagged variables
-short_lag <- 4
-# make NA data frame
-add_df <- DF1[1:short_lag,]
-add_df[!is.na(add_df)] <- NA 
-# add at the bottom
-DF1 <- rbind(DF1,add_df)
-
-# the predictor with shortest lag gives lag for the week_name=the week from which we use all data
-# predictors of which we know future values can have shorter lag 
-# shortest lag of 4
-my_shortest_lag <- 4
-#
-DF1 <-  DF1[1 : (end.timeline+short_lag),] %>% 
   mutate(
-    data_weekname = lag(weekname, n = 4), # this is the week from where we use the data
-    cases_l4 = lag(cases, n = 4),
-    dcases_l4 = lag(dcases, n = 4), 
-    cases_l5 = lag(cases,n = 5),
-    dcases_l5 = lag(dcases,n = 5),
-    kids_cuddle_l2 = lag(inschool,n = 2),
-    big_hols_l1= lag(big_holidays,n = 1),
     sin_week = sin(2*pi*week/52),
     cos_week = cos(2*pi*week/52)
-  ) %>% 
-  mutate(
-    weekname = lag(weekname, n = 4),
-    cases = lag(cases, n = 4)
-  )
 
 # truncate the NA-beginning
 # the season lag produces 53 NA
@@ -154,7 +121,6 @@ myfit_control <- function(horizon){
   return(fitControl)
 }
   
-
 #######################################################
 #### start the prediction loop
 DF <- DF2 # use DF in the loop
@@ -206,22 +172,17 @@ for (pred.tpoint in pred_vector){
   ar_predictions <- forecast.Arima(Fit2,4)
   
   #####################
-  ### output
   
   ### save random forest
   final_predict <- rf_predictions
   # save 1 weeks forecast and observed
   FAO$f1w[i] <- exp(final_predict[1])-1
-  FAO$o1w[i] <- exp(observed[1])-1
   # save 2 weeks forecast and observed
   FAO$f2w[i] <- exp(final_predict[2])-1
-  FAO$o2w[i] <- exp(observed[2])-1
   # save 3 weeks forecast and observed
   FAO$f3w[i] <- exp(final_predict[3])-1
-  FAO$o3w[i] <- exp(observed[3])-1
   # save 4 weeks forecast and observed
   FAO$f4w[i] <- exp(final_predict[4])-1
-  FAO$o4w[i] <- exp(observed[4])-1
   
   ### save ARIMA
   final_predict <- as.numeric(ar_predictions$mean)

@@ -142,16 +142,18 @@ points(holiday_df$whenare_kidsoff[1000:2000],col="darkred",pch=19)
 ##############################
 # bin into week
 holiday_perweek <- holiday_df %>% 
-  group_by(weekname) %>% 
+  group_by(weekname,year,week) %>% 
   summarise(big_holidays=as.numeric(any(whenis_bigholiday==1)),
             inschool=as.numeric(sum(whenare_kidsoff==0)))
 
 # fix week 53
 weeks_53 <- which(holiday_perweek$weekname %in% c("2011-53","2012-53","2013-53","2015-53","2016-53"))
 #
-holiday_perweek[weeks_53-1,3] <- (holiday_perweek[weeks_53,3]+holiday_perweek[weeks_53-1,3])
+my_vars = c("inschool")
+holiday_perweek[weeks_53-1,my_vars] <- (holiday_perweek[weeks_53,my_vars]+holiday_perweek[weeks_53-1,my_vars])
 # remove extra weeks
 holiday_perweek <- holiday_perweek[-weeks_53,]
+names(holiday_perweek)[2:3] <- c("hyear","hweek")
 ########################################
 #### save & load
 savename <- paste0("./Data/", script_name, ".Rda")
