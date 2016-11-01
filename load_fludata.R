@@ -13,7 +13,7 @@ library(cdcfluview)
 library(stringr)
 
 # downlaod the flu data
-usflu <- get_flu_data("national", "ilinet", years=1997:2015)
+usflu <- get_flu_data("national", "ilinet", years=1997:2016)
 usflu_raw <- usflu
 
 ###################################
