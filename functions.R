@@ -56,7 +56,7 @@ myfit_control <- function(horizon){
   return(fitControl)
 }
 # my predictor function
-my_predictors_lag <- function(choose_predictors,choose_lags,DF,tchoice_v){
+my_predictors_lag <- function(choose_predictors,choose_lags,name_predictors,DF,tchoice_v){
   name_predictors <- paste(choose_predictors,choose_lags,sep="_")
   # number of predictors
   num_pred <- length(choose_predictors)
