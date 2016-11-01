@@ -35,7 +35,7 @@ prstop <- which(DF$weekname == last.prediction)
 pred_vector <- prstart:prstop
 
 # start training points
-train_start_vector <- pred_vector - (190 - 10)
+train_start_vector <- pred_vector - (100)
 
 ### initiate outputfile
 num.of.pred <- (prstop - prstart) + 1
@@ -60,72 +60,60 @@ for (pred.tpoint in pred_vector){
   last_week_you_see <- DF$weekname[df_point]
   tchoice_v <- train_start:df_point
   
+  ################## RANDOM FOREST
   # lag: 4
   wks_ahead <- 4
-  ###############################################
-  # make train data
   choose_predictors <- c("sin_week","week","cases","cases","dcases",
-                         "kids_cuddle","kids_cuddle"
-                         )
+                         "kids_cuddle",
+                         "temp_av"
+  )
+  #
   choose_lags <- c(0,0,4,5,4,
-                   0,1
-                   )
-  # make predictor matrix and outcome
-  X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
-  Y <- DF$cases[tchoice_v]
+                   1,
+                   4
+  )
+  #
+  rf_w4_pred <- my_randomforest(wks_ahead,choose_predictors,choose_lags)
   
-  ###############################################
-  # train RANDOM FOREST
-  Fit1 <- train(x = X,
-                y = Y, 
-                method = "rf", 
-                trControl = myfit_control(wks_ahead),
-                verbose = TRUE,
-                tuneGrid = NULL,
-                tuneLength = 10,
-                importance = TRUE)
-  # obtain feature rank
-  varImp(Fit1)
-  ### forecast: no longer than the shortest lag!
-  tchoice_forc_v <- df_point + 1:wks_ahead
-  covars_for_forecast <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_forc_v)
-  rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
   
   # lag: 3
   wks_ahead <- 3
-  ###############################################
-  # make train data
-  choose_predictors <- c("sin_week","week","cases","cases","dcases","dcases",
-                         "big_holidays","big_holidays","kids_cuddle","kids_cuddle"
+  # 
+  choose_predictors <- c("sin_week","week","cases","dcases",
+                         "temp_av","temp_av"
   )
-  choose_lags <- c(0,0,3,4,3,4,
-                   1,2,1,2
+  choose_lags <- c(0,0,3,3,
+                   3,4
   )
-  # make predictor matrix and outcome
-  X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
-  Y <- DF$cases[tchoice_v]
-  
-  ###############################################
-  # train RANDOM FOREST
-  Fit1 <- train(x = X,
-                y = Y, 
-                method = "rf", 
-                trControl = myfit_control(wks_ahead),
-                verbose = TRUE,
-                tuneGrid = NULL,
-                tuneLength = 6,
-                importance = TRUE)
-  # obtain feature rank
-  varImp(Fit1)
-  ### forecast: no longer than the shortest lag!
-  tchoice_forc_v <- df_point + 1:wks_ahead
-  covars_for_forecast <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_forc_v)
-  rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
+  # predict
+  rf_w3_pred <- my_randomforest(wks_ahead,choose_predictors,choose_lags)
   
   
+  # lag: 2
+  wks_ahead <- 2
+  # 
+  choose_predictors <- c("sin_week","week","cases","cases",
+                         "temp_av","temp_av"
+  )
+  choose_lags <- c(0,0,2,3,
+                   2,3
+  )
+  #  
+  rf_w2_pred <- my_randomforest(wks_ahead,choose_predictors,choose_lags)
   
-  # observed values 
-  observed <- exp(DF$cases[tchoice_forc_v])-1
+  
+  # lag: 1
+  wks_ahead <- 1
+  # 
+  choose_predictors <- c("sin_week","week","cases","cases","cases","dcases",
+                         "temp_av","temp_av"
+  )
+  choose_lags <- c(0,0,1,2,3,1,
+                   1,2
+  )
+  #
+  rf_w1_pred <- my_randomforest(wks_ahead,choose_predictors,choose_lags)
+  
   
   ##################################################
   # SARIMA
@@ -135,6 +123,11 @@ for (pred.tpoint in pred_vector){
   ### forecast
   wks_ahead_arim <- 4
   ar_predictions <- forecast.Arima(Fit2,4)
+  
+  ##################################################
+  # observed values 
+  tchoice_forc_v <- df_point + 1:4
+  observed <- exp(DF$cases[tchoice_forc_v])-1
   
   #####################
   ### output  
