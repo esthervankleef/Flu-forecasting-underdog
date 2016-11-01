@@ -3,15 +3,47 @@
 
 ####################################
 # Topic: Statistical learning
+
+# funtion for random forest
+
+my_randomforest <- function(wks_ahead,choose_predictors,choose_lags){
+  # lag: 
+  wks_ahead <- wks_ahead
+  ###############################################
+  # make train data
+  
+  # make predictor matrix and outcome
+  X <- my_predictors_lag(choose_predictors,choose_lags,DF,tchoice_v)
+  Y <- DF$cases[tchoice_v]
+  ###############################################
+  # train RANDOM FOREST
+  Fit1 <- train(x = X,
+                y = Y, 
+                method = "rf", 
+                trControl = myfit_control(wks_ahead),
+                verbose = TRUE,
+                tuneGrid = NULL,
+                tuneLength = 10,
+                importance = FALSE)
+  # obtain feature rank
+  #varImp(Fit1)
+  ### forecast: no longer than the shortest lag!
+  tchoice_forc_v <- df_point + 1:wks_ahead
+  covars_for_forecast <- my_predictors_lag(choose_predictors,choose_lags,DF,tchoice_forc_v)
+  rf_predictions <- predict(Fit1, covars_for_forecast) # point predictions
+  return(rf_predictions[wks_ahead])
+}
+
+
 # function that makes regression function and plots
 regplot <- function(x,y,...){
-        # fit model
-        fit <- lm(y~x)
-        # plot
-        par(mfrow=c(1,1)); 
-        plot(x,y,...)
-        #
-        abline(fit,col="darkred")
+  # fit model
+  fit <- lm(y~x)
+  # plot
+  par(mfrow=c(1,1)); 
+  plot(x,y,...)
+  #
+  abline(fit,col="darkred")
 }
 # exp: regplot(Price,Sales,xlab="Price",ylab="Sales",col="darkblue",pch=20)
 # my own fit control function
@@ -24,7 +56,7 @@ myfit_control <- function(horizon){
   return(fitControl)
 }
 # my predictor function
-my_predictors_lag <- function(choose_predictors,choose_lags,name_predictors,DF,tchoice_v){
+my_predictors_lag <- function(choose_predictors,choose_lags,DF,tchoice_v){
   name_predictors <- paste(choose_predictors,choose_lags,sep="_")
   # number of predictors
   num_pred <- length(choose_predictors)
