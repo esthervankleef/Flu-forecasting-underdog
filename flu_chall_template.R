@@ -15,99 +15,22 @@ library(forecast)
 library(randomForest)
 library(caret)
 library(glmnet)
-########################################
-#### load data
-# flu data
-load("./Data/data_manip.Rda")
-DF <- usflu # already truncated and without NA (otherwise use usflu_allyears)
-# holiday data
-load("./Data/school_holidays.Rda")
-load("./Data/clim_data.Rda")
-load("./Data/seas_times.Rda")
-load("./Data/google_data.Rda")
 
-#######################################################
-# log transform data
-# DO WE NEED TO LOG-TRANSFORM?
-# For ARIMA and LASSO yes. Is done in the below
-DF1 <- DF %>% 
-  dplyr::select(-region,-region.type) %>% mutate(cases = as.numeric(as.character(x.weighted.ili)),
-                                                 cases = log(cases + 1)) # NA is one missing value which was coded as X
-# only keep DF
-rm(usflu, usflu_allyears, DF)
-# add holidays to the dataframe
-DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
-DF3 <- dplyr::left_join(DF2,seas_times,by = "weekname")
-DF4 <- dplyr::left_join(DF3,clim, by="weekname")
-DF5 <- dplyr::left_join(DF4,google, by="weekname")
-no_dates <- is.na(DF5$year)
-DF5$year[no_dates] <- DF5$hyear[no_dates]
-DF5$week[no_dates] <- DF5$hweek[no_dates]
+load("./Data/data_manip_2.Rda")
 
-DF1 <- DF5
-
-### identify and remove week 53
-# identify where there are 53 weeks 
-week53 = DF1$year[which(DF1$week == 53)]
-# get rid of 53 week
-week53_names <- paste(week53,"53",sep="-")
-where_week53 <- which(DF1$weekname %in% week53_names)
-#
-my_vars <- c("x.weighted.ili","ilitotal",
-             "total.patients","cases","big_holidays","inschool","m_start_seas",
-             "m_end_seas","m_peak_seas","temp_av","temp_anom_av",
-             "gfever","gheadache","gdoctor","gshivering","gcough")
-
-# take the mean
-DF1[where_week53-1,my_vars] <- (DF1[where_week53-1,my_vars] + DF1[where_week53,my_vars])/2
-# remove week 53
-DF1 <- DF1[-where_week53,]
-
-# give each timepoint the season name, assuming that the dataframe start at the start of a season
-season=NULL
-for(i in 1:(length(unique(DF1$year))-0)){
-  s = rep(i,52)
-  season = c(season,s)
-}
-# 
-season <- season[1:dim(DF1)[1]]
-DF1$season = season
-
-# create a sum over seasons 
-seas = DF1%>%group_by(season) %>% summarise(seas_total = sum(cases)) %>% mutate(seas_total_l1=lag(seas_total,1))
-# add as covariate
-DF1 = left_join(DF1, seas, by="season")
-
-end.timeline <- dim(DF1)[1]
-### mutate predictive variables: derivatives
-DF1 <-  DF1 %>% 
-  mutate(
-    cases = cases, # lag 4
-    dcases = c(NA,diff(cases)), # lag 4 # lag 5
-    kids_cuddle = inschool, # lag 2
-    big_hols= big_holidays, # lag 1
-    sin_week = sin(2*pi*week/52),
-    cos_week = cos(2*pi*week/52)
-    )
-
-# truncate the NA-beginning
-# the season lag produces 53 NA
-# but even more NA because holidays available form 2011-51
-week_pos <- which(DF1$weekname == "2011-51") + 2 # plus because of lag
-DF2 <- DF1[week_pos:end.timeline,] 
-
+############################################
+### make timepoints
 # decide the time points from where to make first.prediction and last.prediction
 first.prediction <- "2015-35" # week from where to make the first prediction
 # last.prediction; to validate own predictions we need observed data: then minus shortest lag
 last.prediction <- "2016-34"
-
 # where to put the start given the last prediction
-last.prediction_df <- which(DF2$weekname == last.prediction)
-DF2$weekname[last.prediction_df - 200]
+last.prediction_df <- which(DF$weekname == last.prediction)
+DF$weekname[last.prediction_df - 200]
 
 # make numeric for final training point = prediction point
-prstart <- which(DF2$weekname == first.prediction)
-prstop <- which(DF2$weekname == last.prediction)
+prstart <- which(DF$weekname == first.prediction)
+prstop <- which(DF$weekname == last.prediction)
 # all prediction points
 pred_vector <- prstart:prstop
 
@@ -124,7 +47,6 @@ FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
 source("functions.R")
 #######################################################
 #### start the prediction loop
-DF <- DF2 # use DF in the loop
 i <- 0
 for (pred.tpoint in pred_vector){
   i = i + 1
@@ -142,7 +64,8 @@ for (pred.tpoint in pred_vector){
   wks_ahead <- 4
   ###############################################
   # make train data
-  choose_predictors <- c("week","cases","dcases")
+  choose_predictors <- c("week","cases","cases","dcases","dcases",
+                         "big_holidays","kids_cuddle")
   choose_lags <- c(0,4,5)
   # make predictor matrix and outcome
   X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
