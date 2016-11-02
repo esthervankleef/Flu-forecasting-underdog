@@ -201,13 +201,14 @@ for (pred.tpoint in pred_vector){
 } ####### end of loop
 
 #####################################################
-# What is kept in final models (using internal build cross-validation of glmnet)
+# What is kept in final models (using internal build cross-validation of glmnet, not my s values
+# I think these should be similar)
 tchoice_v <- train_start:df_point
 
 dat_coefs = list()
 par(mfrow=c(2,2))
 for(w in c(1:4)){
-  cv.lasso <- cv.glmnet(x=Xdats[[w]], y=Y,type.measure = "mse", nfolds = 20)
+  cv.lasso <- cv.glmnet(x=Xdats[[w]], y=Y,type.measure = "mse", nfolds = 10)
   coefs = data.frame(beta=rep(NA,length(rownames(coef(cv.lasso)))))
   
   plot(cv.lasso, main=paste0(w,"- weeks prediction"))  # Best fitting model has 3 parameters
