@@ -44,6 +44,13 @@ num.of.pred <- (prstop - prstart) + 1
 # forcast 
 FAO <- data.frame(timepoint_reference = prstart:prstop) # rf
 FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
+### Remove NAs from google data
+googleNA = which(is.na(DF$gdoctor))
+googleNA = googleNA[googleNA<prstop]
+
+g_words = c("gfever","gheadache","gdoctor","gshivering","gcough")
+
+DF[googleNA,g_words] = DF[googleNA-1,g_words]
 
 ##### call functions
 source("functions.R")
@@ -54,41 +61,58 @@ choose_predictors <- list()
 choose_lags <- list()
 ###
 wks_ahead <- 4
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","dcases",
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","cases","dcases","dcases",
                                     "kids_cuddle",
+                                    "gfever","gheadache","gdoctor","gshivering","gcough",
                                     "temp_av"
 )
 #
-choose_lags[[wks_ahead]] <- c(0,0,4,5,4,
+choose_lags[[wks_ahead]] <- c(0,0,4,5,6,4,5,
                               1,
+                              4,4,4,4,4,
                               4
 )
 ##########
 wks_ahead <- 3
 # 
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases",
-                                    "temp_av","temp_av"
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","cases","dcases","dcases",
+                                    "kids_cuddle",
+                                    "gfever","gheadache","gdoctor","gshivering","gcough",
+                                    "temp_av"
 )
-choose_lags[[wks_ahead]] <- c(0,0,3,3,
-                              3,4
+#
+choose_lags[[wks_ahead]] <- c(0,0,3,4,5,3,4,
+                              1,
+                              3,3,3,3,3,
+                              3
 )
 ###########
 wks_ahead <- 2
 # 
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases",
-                                    "temp_av","temp_av"
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","cases","dcases","dcases",
+                                    "kids_cuddle",
+                                    "gfever","gheadache","gdoctor","gshivering","gcough",
+                                    "temp_av"
 )
-choose_lags[[wks_ahead]] <- c(0,0,2,3,
-                              2,3
+#
+choose_lags[[wks_ahead]] <- c(0,0,2,3,4,2,3,
+                              1,
+                              2,2,2,2,2,
+                              2
 )
 ##########
 wks_ahead <- 1
 # 
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases",
-                                    "temp_av","temp_av"
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","cases","dcases","dcases",
+                                    "kids_cuddle",
+                                    "gfever","gheadache","gdoctor","gshivering","gcough",
+                                    "temp_av"
 )
-choose_lags[[wks_ahead]] <- c(0,0,2,3,
-                              2,3
+#
+choose_lags[[wks_ahead]] <- c(0,0,1,2,3,1,2,
+                              1,
+                              1,1,1,1,1,
+                              1
 )
 ######################################
 ######### start loop

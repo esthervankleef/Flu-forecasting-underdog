@@ -17,7 +17,7 @@ my_rf_fit <- function(wks_ahead,choose_predictors,choose_lags,tchoice_v,DF){
                   trControl = myfit_control(wks_ahead),
                   verbose = FALSE,
                   tuneGrid = NULL,
-                  tuneLength = 10,
+                  tuneLength = 20,
                   importance = FALSE)
 }
 
@@ -67,7 +67,7 @@ myfit_control <- function(horizon){
   # fit control timeslices for timeseries, from 2 seasons, horizon 4 weeks
   if (horizon == 1){horizon <- 2}
   fitControl <- trainControl(method = "timeslice",
-                             initialWindow = 52,
+                             initialWindow = 60,
                              horizon = horizon,
                              fixedWindow = TRUE)
   return(fitControl)
