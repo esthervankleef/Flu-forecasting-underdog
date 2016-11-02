@@ -4,8 +4,24 @@
 ####################################
 # Topic: Statistical learning
 
-# funtion for random forest
+# function to return rf fit
+my_rf_fit <- function(wks_ahead,choose_predictors,choose_lags,tchoice_v,DF){
+  #
+  # make predictor matrix and outcome
+  X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
+  Y <- DF$cases[tchoice_v]
+  # train RANDOM FOREST
+  Fit0.4 <- train(x = X,
+                  y = Y, 
+                  method = "rf", 
+                  trControl = myfit_control(wks_ahead),
+                  verbose = FALSE,
+                  tuneGrid = NULL,
+                  tuneLength = 10,
+                  importance = FALSE)
+}
 
+# funtion for random forest
 my_randomforest <- function(wks_ahead,choose_predictors,choose_lags){
   # lag: 
   wks_ahead <- wks_ahead
@@ -21,7 +37,7 @@ my_randomforest <- function(wks_ahead,choose_predictors,choose_lags){
                 y = Y, 
                 method = "rf", 
                 trControl = myfit_control(wks_ahead),
-                verbose = TRUE,
+                verbose = FALSE,
                 tuneGrid = NULL,
                 tuneLength = 10,
                 importance = FALSE)
@@ -49,6 +65,7 @@ regplot <- function(x,y,...){
 # my own fit control function
 myfit_control <- function(horizon){
   # fit control timeslices for timeseries, from 2 seasons, horizon 4 weeks
+  if (horizon == 1){horizon <- 2}
   fitControl <- trainControl(method = "timeslice",
                              initialWindow = 52,
                              horizon = horizon,

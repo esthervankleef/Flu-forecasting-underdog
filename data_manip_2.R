@@ -39,6 +39,7 @@ DF2 <- dplyr::full_join(DF1,holiday_perweek,by = "weekname")
 DF3 <- dplyr::left_join(DF2,seas_times,by = "weekname")
 DF4 <- dplyr::left_join(DF3,clim, by="weekname")
 DF5 <- dplyr::left_join(DF4,google, by="weekname")
+# fill in the missing years and weeks
 no_dates <- is.na(DF5$year)
 DF5$year[no_dates] <- DF5$hyear[no_dates]
 DF5$week[no_dates] <- DF5$hweek[no_dates]
