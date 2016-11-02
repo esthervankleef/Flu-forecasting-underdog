@@ -312,13 +312,13 @@ par(mfrow=c(2,2))
 for(w in c(1:4)){
   num.l = lambda_best$s.num[w]
   best.l =lambda_best$s[w]
-  plot(FAO[[1]]$timepoint_reference, unlist(FAO[[num.l]]$o4w), 
+  plot(FAO[[1]]$timepoint_reference, unlist(FAO[[num.l]][w*2+1]), 
      pch=19, cex=0.25,
      xlab="date", ylab="cases", main=paste0(w,"-week prediction best s = ", best.l))
   lines(FAO[[num.l]]$timepoint_reference, unlist(FAO[[num.l]][w*2]),
       col=adjustcolor(cols[w], 0.5), lwd=3)
- # lines(FAOa$timepoint_reference, FAOa[,w*2],
-  #    col=adjustcolor(cols[5], 0.5), lwd=3)
+ lines(FAO[[1]]$timepoint_reference, unlist(FAO[[1]][w*2]),
+    col=adjustcolor(cols[5], 0.5), lwd=3,lty=2)
 }
 dev.off()
 
