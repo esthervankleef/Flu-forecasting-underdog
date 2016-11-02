@@ -276,6 +276,13 @@ mse_ref[5] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 4))^2,na.rm = TRUE)
 # All model mse together
 eval <- rbind(mse_ref,mse_AR,mse_LA_best)
 eval
+########################################
+#### save & load
+savename <- paste0("./Data/", script_name , ".Rda")
+save(FAO,eval,file = savename)
+# loading (from here can be run without re-running the loop)
+load(savename)
+
 
 #####################################################
 # Plot output

@@ -6,7 +6,7 @@
 
 # empty workspace
 rm(list = ls())
-script_name <- "flu_chall_template"
+script_name <- "experimental_Rene"
 
 # libraries
 library(tidyverse)
@@ -18,12 +18,14 @@ library(glmnet)
 
 load("./Data/data_manip_2.Rda")
 
-############################################
-### make timepoints
-# decide the time points from where to make first.prediction and last.prediction
-first.prediction <- "2015-35" # week from where to make the first prediction
+###
+###
+### set parameters
 # last.prediction; to validate own predictions we need observed data: then minus shortest lag
-last.prediction <- "2016-34"
+last.prediction <- "2016-42" # include the newest week
+# decide the time points from where to make first.prediction and last.prediction
+first.prediction <- "2015-38" # week from where to make the first prediction
+
 # where to put the start given the last prediction
 last.prediction_df <- which(DF$weekname == last.prediction)
 DF$weekname[last.prediction_df - 200]
@@ -45,8 +47,52 @@ FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
 
 ##### call functions
 source("functions.R")
+
 #######################################################
-#### start the prediction loop
+### make decisions about RF
+choose_predictors <- list()
+choose_lags <- list()
+###
+wks_ahead <- 4
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","dcases",
+                                    "kids_cuddle",
+                                    "temp_av"
+)
+#
+choose_lags[[wks_ahead]] <- c(0,0,4,5,4,
+                              1,
+                              4
+)
+##########
+wks_ahead <- 3
+# 
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases",
+                                    "temp_av","temp_av"
+)
+choose_lags[[wks_ahead]] <- c(0,0,3,3,
+                              3,4
+)
+###########
+wks_ahead <- 2
+# 
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases",
+                                    "temp_av","temp_av"
+)
+choose_lags[[wks_ahead]] <- c(0,0,2,3,
+                              2,3
+)
+##########
+wks_ahead <- 1
+# 
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases",
+                                    "temp_av","temp_av"
+)
+choose_lags[[wks_ahead]] <- c(0,0,2,3,
+                              2,3
+)
+######################################
+######### start loop
+####################################
 i <- 0
 for (pred.tpoint in pred_vector){
   i = i + 1
@@ -61,109 +107,74 @@ for (pred.tpoint in pred_vector){
   tchoice_v <- train_start:df_point
   
   ################## RANDOM FOREST
-  # lag: 4
+  
+  # fitting
+  ####################################################################
   wks_ahead <- 4
-  choose_predictors <- c("sin_week","week","cases","cases","dcases",
-                         "kids_cuddle",
-                         "temp_av"
-  )
   #
-  choose_lags <- c(0,0,4,5,4,
-                   1,
-                   4
-  )
-  #
-  rf_w4_pred <- my_randomforest(wks_ahead,choose_predictors,choose_lags)
+  Fit0.4 <- my_rf_fit(wks_ahead,choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],tchoice_v,DF)
   
-  
-  # lag: 3
+  ####################################################################
   wks_ahead <- 3
   # 
-  choose_predictors <- c("sin_week","week","cases","dcases",
-                         "temp_av","temp_av"
-  )
-  choose_lags <- c(0,0,3,3,
-                   3,4
-  )
-  # predict
-  rf_w3_pred <- my_randomforest(wks_ahead,choose_predictors,choose_lags)
+  Fit0.3 <- my_rf_fit(wks_ahead,choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],tchoice_v,DF)
   
-  
-  # lag: 2
+  ####################################################################  
   wks_ahead <- 2
-  # 
-  choose_predictors <- c("sin_week","week","cases","cases",
-                         "temp_av","temp_av"
-  )
-  choose_lags <- c(0,0,2,3,
-                   2,3
-  )
-  #  
-  rf_w2_pred <- my_randomforest(wks_ahead,choose_predictors,choose_lags)
+  #
+  Fit0.2 <- my_rf_fit(wks_ahead,choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],tchoice_v,DF)
   
-  
-  # lag: 1
+  ####################################################################  
   wks_ahead <- 1
   # 
-  choose_predictors <- c("sin_week","week","cases","cases","dcases","dcases",
-                         "temp_av","temp_av","kids_cuddle"
-  )
-  choose_lags <- c(0,0,1,2,1,2,
-                   1,2,1
-  )
-  #
-  rf_w1_pred <- my_randomforest(wks_ahead,choose_predictors,choose_lags)
+  Fit0.1 <- my_rf_fit(wks_ahead,choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],tchoice_v,DF)
+  ###
+  models = list(Fit0.1,Fit0.2,Fit0.3,Fit0.4)
   
+  # forecasts
+  ####################################################################  
+  rf.predictions = list()
+  ### forecast: no longer than the shortest lag!
+  for(w in c(1:4)){
+    # weeks ahead
+    wks_ahead = w
+    # make vector
+    tchoice_forc_v <- df_point + 1:wks_ahead
+    #
+    covars_for_forecast <- my_predictors_lag(choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],name_predictors,DF,tchoice_forc_v)
+    rf_predictions <- predict(models[[w]], covars_for_forecast) # point predictions
+    # save prediction
+    rf.predictions[[w]] = rf_predictions[wks_ahead]
+  }
+  names(rf.predictions) = c("fw1","fw2","fw3","fw4")
   
-  ##################################################
-  # SARIMA
-  # fit model
-  Fit2 <- Arima(DF$cases[tchoice_v], order=c(1,0,0),
-                seasonal=list(order=c(1,0,0),period=52))
-  ### forecast
-  wks_ahead_arim <- 4
-  ar_predictions <- forecast.Arima(Fit2,4)
-  
-  ##################################################
   # observed values 
   tchoice_forc_v <- df_point + 1:4
-  observed <- exp(DF$cases[tchoice_forc_v])-1
+  observed <- DF$cases[tchoice_forc_v]
   
   #####################
   ### output  
   ### save random forest
-  final_predict <- rf_predictions
   # save 1 weeks forecast and observed
-  FAO$f1w[i] <- exp(final_predict[1])-1
+  FAO$f1w[i] <- rf.predictions$fw1
   FAO$o1w[i] <- observed[1]
   # save 2 weeks forecast and observed
-  FAO$f2w[i] <- exp(final_predict[2])-1
+  FAO$f2w[i] <- rf.predictions$fw2
   FAO$o2w[i] <- observed[2]
   # save 3 weeks forecast and observed
-  FAO$f3w[i] <- exp(final_predict[3])-1
+  FAO$f3w[i] <- rf.predictions$fw3
   FAO$o3w[i] <- observed[3]
   # save 4 weeks forecast and observed
-  FAO$f4w[i] <- exp(final_predict[4])-1
+  FAO$f4w[i] <- rf.predictions$fw4
   FAO$o4w[i] <- observed[4]
   
-  ### save ARIMA
-  final_predict <- as.numeric(ar_predictions$mean)
-  # save 1 weeks forecast and observed
-  FAOa$f1w[i] <- exp(final_predict[1])-1
-  FAOa$o1w[i] <- observed[1]
-  # save 2 weeks forecast and observed
-  FAOa$f2w[i] <- exp(final_predict[2])-1
-  FAOa$o2w[i] <- observed[2]
-  # save 3 weeks forecast and observed
-  FAOa$f3w[i] <- exp(final_predict[3])-1
-  FAOa$o3w[i] <- observed[3]
-  # save 4 weeks forecast and observed
-  FAOa$f4w[i] <- exp(final_predict[4])-1
-  FAOa$o4w[i] <- observed[4]
-  
 } ####### end of loop
-#####################################################
+# cut away last 4 weeks, where you have nothing to compare to
+its_length <- dim(FAO)[1]
+FAO <- FAO[1:(its_length-4),]
+
 # evaluate
+#####################################################
 
 # RF MSE
 mse_RF = data.frame(cbind(model = rep("Random Forest",1), mse1w = rep(NA,1),
@@ -174,52 +185,95 @@ mse_RF[3] <- mean((FAO$o2w - FAO$f2w)^2)
 mse_RF[4] <- mean((FAO$o3w - FAO$f3w)^2)
 mse_RF[5] <- mean((FAO$o4w - FAO$f4w)^2)
 
-# ARIMA MSE
-mse_AR = data.frame(cbind(model = rep("Arima",1), mse1w = rep(NA,1),
-                          mse2w = rep(NA,1),mse3w = rep(NA,1),
-                          mse4w = rep(NA,1)))
-mse_AR[2] <- mean((FAOa$o1w - FAOa$f1w)^2)
-mse_AR[3] <- mean((FAOa$o2w - FAOa$f2w)^2)
-mse_AR[4] <- mean((FAOa$o3w - FAOa$f3w)^2)
-mse_AR[5] <- mean((FAOa$o4w - FAOa$f4w)^2)
-
 # Reference model MSE
 mse_ref = data.frame(cbind(model = rep("Model0",1), mse1w = rep(NA,1),
                            mse2w = rep(NA,1),mse3w = rep(NA,1),
                            mse4w = rep(NA,1)))
-mse_ref[2] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 1))^2,na.rm = TRUE)
-mse_ref[3] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 2))^2,na.rm = TRUE)
-mse_ref[4] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 3))^2,na.rm = TRUE)
-mse_ref[5] <- mean((FAOa$o1w - lag(FAOa$o1w,n = 4))^2,na.rm = TRUE)
+mse_ref[2] <- mean((FAO$o1w - lag(FAO$o1w,n = 1))^2,na.rm = TRUE)
+mse_ref[3] <- mean((FAO$o1w - lag(FAO$o1w,n = 2))^2,na.rm = TRUE)
+mse_ref[4] <- mean((FAO$o1w - lag(FAO$o1w,n = 3))^2,na.rm = TRUE)
+mse_ref[5] <- mean((FAO$o1w - lag(FAO$o1w,n = 4))^2,na.rm = TRUE)
 # bind together
-eval <- rbind(mse_ref,mse_RF,mse_AR)
+eval <- rbind(mse_ref,mse_RF)
 
 ########################################
 #### save & load
-savename <- paste0("./Data/", "experimental_Rene", ".Rda")
-save(FAO,FAOa,eval,file = savename)
+savename <- paste0("./Data/", script_name , ".Rda")
+save(FAO,eval,file = savename)
 # loading (from here can be run without re-running the loop)
 load(savename)
 
 #####################################################
 # plot
-par(mfrow=c(3,1)) 
+par(mfrow=c(2,1)) 
 # reference (naive)
-my_title <- paste("Ref 4-weeks, MSE =", as.character(round(mse_ref_4w,digits = 4)))
+my_title <- paste("Ref 4-weeks, MSE =", as.character(round(mse_ref$mse4w,digits = 4)))
 plot(FAO$timepoint_reference,FAO$o4w,pch=19, col="black"); title(my_title)
 points(FAO$timepoint_reference,c(lag(FAO$o4w,n = 4)),pch=20,col="darkred")
 # rf
-my_title <- paste("RF 4-weeks, MSE =", as.character(round(mse_rf_4w,digits = 4)))
+my_title <- paste("RF 4-weeks, MSE =", as.character(round(mse_RF$mse4w,digits = 4)))
 plot(FAO$timepoint_reference,FAO$o4w,pch=19, col="black"); title(my_title)
 points(FAO$timepoint_reference,FAO$f4w,pch=20,col="darkred")
-# SARIMA
-my_title <- paste("SARIMA 4-weeks, MSE =", as.character(round(mse_AR_4w,digits = 4)))
-plot(FAOa$timepoint_reference,FAOa$o4w,pch=19, col="black"); title(my_title)
-points(FAOa$timepoint_reference,FAOa$f4w,pch=20,col="darkred")
 par(mfrow=c(1,1)) 
 
+
 #####################################################
-# get standard error
+# Calculate SD of residuals
+pred = data.frame(cbind(target = c("1week","2week","3week","4week"),mean = rep(0,4), sd = rep(0,4)))
+my_sd = NULL
+# fill in sd for each lag 
+w <- 1; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
+w <- 2; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
+w <- 3; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
+w <- 4; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
+pred$sd = my_sd
 
+#####################################################
+# Generate predictions
+df_point = which(DF$weekname == "2016-42")
+my_mean=NULL
+# loop through the 
+for(w in c(1:4)){
+  wks_ahead = w
+  tchoice_forc_v <- df_point + 1:wks_ahead
+  covars_for_forecast <- my_predictors_lag(choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],name_predictors,DF,tchoice_forc_v)
+  rf_predictions <- predict(models[[w]], covars_for_forecast) # point predictions
+  # save prediction
+  re.prediction = rf_predictions[wks_ahead]
+  #
+  my_mean = c(my_mean, re.prediction)
+}
+pred$mean = my_mean
 
-#write.csv(outputfile,file="./Data/DARIMA_forecastsRF_11.csv",row.names = FALSE)
+#####################################################
+# Calculate probability of bins
+breaks.in = c(seq(0,13.0,0.1)) # Everything 13 and above will be put together in one bin
+
+prob.forecast = data.frame(cbind(Bin_start_incl = breaks.in,w1 = rep(NA,length(breaks.in)),w2 = rep(NA,length(breaks.in)),
+                                 w3 = rep(NA,length(breaks.in)),w4 = rep(NA,length(breaks.in))))
+
+#
+par(mfrow=c(2,2))
+for(w in c(1:4)){
+  prob.forecast[,w+1] = gen.prob.distr(mean=pred$mean[w], sd=pred$sd[w], log.scale=T, breaks.in=breaks.in)
+  plot(breaks.in,prob.forecast[,w+1], type="l", ylab="density", main=paste0(w,"-weeks prediction density"), xlab="breaks")
+  
+}
+par(mfrow=c(1,1))
+
+#####################################################
+# Store forecasts
+results.la = read.csv("./Forecasts/Submission_template.csv")
+results.la$Value = NA
+
+targets = c("1 wk ahead","2 wk ahead","3 wk ahead","4 wk ahead")
+for(w in c(1:4)){
+  nat_week = which(results.la$Target==targets[w] & results.la$Location=="US National")
+  point = exp(pred$mean[w])-1
+  results.la$Value[nat_week] = c(point,prob.forecast[,w+1]) 
+}
+
+#####################################################
+# Save file
+savename <- paste0("./Forecasts/", script_name, ".csv")
+write.csv(results.la,file = savename)
