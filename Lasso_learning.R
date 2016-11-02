@@ -120,7 +120,7 @@ for (pred.tpoint in pred_vector){
   ###############################################
   # train LASSO
   
-  h_weights = c(1*52) # Put higher weights on last 2 year observations
+  h_weights = c(1*52) # Put higher weights on last 1 year observations
   
   # fit LASSO regression
   
@@ -202,7 +202,7 @@ for (pred.tpoint in pred_vector){
 
 #####################################################
 # What is kept in final models (using internal build cross-validation of glmnet, not my s values
-# I think these should be similar)
+# I think these should be more or less similar)
 tchoice_v <- train_start:df_point
 
 dat_coefs = list()
@@ -211,7 +211,7 @@ for(w in c(1:4)){
   cv.lasso <- cv.glmnet(x=Xdats[[w]], y=Y,type.measure = "mse", nfolds = 10)
   coefs = data.frame(beta=rep(NA,length(rownames(coef(cv.lasso)))))
   
-  plot(cv.lasso, main=paste0(w,"- weeks prediction"))  # Best fitting model has 3 parameters
+  plot(cv.lasso, main=paste0(w,"- weeks prediction"))  
   
   coefs[1] = as.numeric(round(coef(cv.lasso)[,1],3)) 
   rownames(coefs) = rownames(coef(cv.lasso))
