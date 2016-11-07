@@ -22,13 +22,15 @@ load("./Data/data_manip_2.Rda")
 ###
 ### set parameters
 # last.prediction; to validate own predictions we need observed data: then minus shortest lag
-last.prediction <- "2016-42" # include the newest week
+# start training points
+first_start_train_point <- "2012-06"
 # decide the time points from where to make first.prediction and last.prediction
-first.prediction <- "2015-38" # week from where to make the first prediction
+first.prediction <- "2015-43" # week from where to make the first prediction
+last.prediction <- "2016-43" # include the newest week
 
 # where to put the start given the last prediction
-last.prediction_df <- which(DF$weekname == last.prediction)
-DF$weekname[last.prediction_df - 200]
+last.prediction_df <- which(DF$weekname == first.prediction)
+DF$weekname[last.prediction_df - 180]
 
 # make numeric for final training point = prediction point
 prstart <- which(DF$weekname == first.prediction)
@@ -37,7 +39,9 @@ prstop <- which(DF$weekname == last.prediction)
 pred_vector <- prstart:prstop
 
 # start training points
-train_start_vector <- pred_vector - (100)
+train_start_vector <- pred_vector - (prstart - which(DF$weekname == first_start_train_point))
+DF$weekname[train_start_vector]
+
 
 ### initiate outputfile
 num.of.pred <- (prstop - prstart) + 1
@@ -61,58 +65,50 @@ choose_predictors <- list()
 choose_lags <- list()
 ###
 wks_ahead <- 4
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","cases","dcases","dcases",
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases","dcases",
                                     "kids_cuddle",
-                                    "gfever","gheadache","gdoctor","gshivering","gcough",
-                                    "temp_av"
+                                    "gfever","gheadache","gdoctor","gshivering","gcough"
 )
 #
-choose_lags[[wks_ahead]] <- c(0,0,4,5,6,4,5,
+choose_lags[[wks_ahead]] <- c(0,0,4,4,5,
                               1,
-                              4,4,4,4,4,
-                              4
+                              4,4,4,4,4
 )
 ##########
 wks_ahead <- 3
 # 
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","cases","dcases","dcases",
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases","dcases",
                                     "kids_cuddle",
-                                    "gfever","gheadache","gdoctor","gshivering","gcough",
-                                    "temp_av"
+                                    "gfever","gheadache","gdoctor","gshivering","gcough"
 )
 #
-choose_lags[[wks_ahead]] <- c(0,0,3,4,5,3,4,
+choose_lags[[wks_ahead]] <- c(0,0,3,3,4,
                               1,
-                              3,3,3,3,3,
-                              3
+                              3,3,3,3,3
 )
 ###########
 wks_ahead <- 2
 # 
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","cases","dcases","dcases",
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases","dcases",
                                     "kids_cuddle",
-                                    "gfever","gheadache","gdoctor","gshivering","gcough",
-                                    "temp_av"
+                                    "gfever","gheadache","gdoctor","gshivering","gcough"
 )
 #
-choose_lags[[wks_ahead]] <- c(0,0,2,3,4,2,3,
+choose_lags[[wks_ahead]] <- c(0,0,2,2,3,
                               1,
-                              2,2,2,2,2,
-                              2
+                              2,2,2,2,2
 )
 ##########
 wks_ahead <- 1
 # 
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","cases","cases","dcases","dcases",
+choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases","dcases",
                                     "kids_cuddle",
-                                    "gfever","gheadache","gdoctor","gshivering","gcough",
-                                    "temp_av"
+                                    "gfever","gheadache","gdoctor","gshivering","gcough"
 )
 #
-choose_lags[[wks_ahead]] <- c(0,0,1,2,3,1,2,
+choose_lags[[wks_ahead]] <- c(0,0,1,1,2,
                               1,
-                              1,1,1,1,1,
-                              1
+                              1,1,1,1,1
 )
 ######################################
 ######### start loop

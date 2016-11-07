@@ -67,7 +67,7 @@ myfit_control <- function(horizon){
   # fit control timeslices for timeseries, from 2 seasons, horizon 4 weeks
   if (horizon == 1){horizon <- 2}
   fitControl <- trainControl(method = "timeslice",
-                             initialWindow = 60,
+                             initialWindow = 104,
                              horizon = horizon,
                              fixedWindow = TRUE)
   return(fitControl)
