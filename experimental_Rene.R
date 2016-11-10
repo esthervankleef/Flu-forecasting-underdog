@@ -26,7 +26,7 @@ load("./Data/data_manip_2.Rda")
 first_start_train_point <- "2012-06"
 # decide the time points from where to make first.prediction and last.prediction
 first.prediction <- "2015-43" # week from where to make the first prediction
-last.prediction <- "2016-43" # include the newest week
+last.prediction <- most_current_week # include the newest week
 
 # where to put the start given the last prediction
 last.prediction_df <- which(DF$weekname == first.prediction)

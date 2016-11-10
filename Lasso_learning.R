@@ -25,8 +25,8 @@ load("./Data/data_manip_2.Rda")
 ### make timepoints
 # decide the time points from where to make first.prediction and last.prediction
 first.prediction <- "2015-35" # week from where to make the first prediction
-# last.prediction; to validate own predictions we need observed data: then minus shortest lag
-last.prediction <- "2016-34"
+# last.prediction, is made from the most_current_week
+last.prediction <- most_current_week
 # where to put the start given the last prediction
 last.prediction_df <- which(DF$weekname == last.prediction)
 DF$weekname[last.prediction_df - 200]
@@ -47,19 +47,18 @@ num.of.pred <- (prstop - prstart) + 1
 ### Remove NAs from google data
 googleNA = which(is.na(DF$gdoctor))
 googleNA = googleNA[googleNA<prstop]
-
+#
 g_words = c("gfever","gheadache","gdoctor","gshivering","gcough")
-
 DF[googleNA,g_words] = DF[googleNA-1,g_words]
 
-# forecast 
+# initiate forecast 
 one <- list(data.frame(timepoint_reference = prstart:prstop, f1w=NA,o1w=NA,f2w=NA,o2w=NA,f3w=NA,o3w=NA,f4w=NA,o4w=NA))
 su = seq(0,1,0.001)
 FAO=list()
 for(i in 1:length(su)){
   FAO = c(FAO,one)
 }
-
+#
 FAOa <- data.frame(timepoint_reference = prstart:prstop) # SARIMA
 
 ##### call functions
@@ -98,10 +97,10 @@ for (pred.tpoint in pred_vector){
   preddats = list(choose_predictors1,choose_predictors2,choose_predictors3,choose_predictors4)
   
   # Choose lags
-  choose_lags1 <- c(0,0,0,1,2,2,1,1,1,1,1,0,0,1,1,4)
-  choose_lags2 <- c(0,0,0,2,3,3,2,2,2,2,2,0,0,1,2,4)
-  choose_lags3 <- c(0,0,0,3,4,4,3,3,3,3,3,0,0,1,3,4)
-  choose_lags4 <- c(0,0,0,4,5,5,4,4,4,4,4,0,0,1,4)
+  choose_lags1 <- c(0,0,0,1,2,2,1,1,1,1,1,0,0,1,52,4)
+  choose_lags2 <- c(0,0,0,2,3,3,2,2,2,2,2,0,0,1,52,4)
+  choose_lags3 <- c(0,0,0,3,4,4,3,3,3,3,3,0,0,1,52,4)
+  choose_lags4 <- c(0,0,0,4,5,5,4,4,4,4,4,0,0,52,4)
   
   lagdats = list(choose_lags1,choose_lags2,choose_lags3,choose_lags4)
   
@@ -116,27 +115,26 @@ for (pred.tpoint in pred_vector){
   # Outcome
   Y <- DF$cases[tchoice_v]
   
-  
   ###############################################
   # train LASSO
   
   h_weights = c(1*52) # Put higher weights on last 1 year observations
-  
+  weight_increase <- 2
   # fit LASSO regression
   
   # 1-week prediction
   Fit0.1 = glmnet(y=Y,x=X1, family="gaussian",
-                  weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights))) # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
+                  weights=c(rep(1,length(Y)-h_weights), rep(weight_increase, h_weights))) # glmnet is fitting with alpha=1 by default, which means LASSO is used for parameter selection;
                                                                             
   # 2-week prediction
   Fit0.2 = glmnet(y=Y,x=X2, family="gaussian",
-                  weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights)))
+                  weights=c(rep(1,length(Y)-h_weights), rep(weight_increase, h_weights)))
   # 3-week prediction
   Fit0.3 = glmnet(y=Y,x=X3, family="gaussian",
-                  weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights))) 
+                  weights=c(rep(1,length(Y)-h_weights), rep(weight_increase, h_weights))) 
   # 4-week prediction
   Fit0.4 = glmnet(y=Y,x=X4, family="gaussian",
-                  weights=c(rep(1,length(Y)-h_weights), rep(2, h_weights))) 
+                  weights=c(rep(1,length(Y)-h_weights), rep(weight_increase, h_weights))) 
   
   models = list(Fit0.1,Fit0.2,Fit0.3,Fit0.4)
   
@@ -182,7 +180,6 @@ for (pred.tpoint in pred_vector){
     FAO[[s]]$f4w[i] <- la.predictions$fw4[[s]][4]
     FAO[[s]]$o4w[i] <- observed[4]
   }
-  
   # ### save ARIMA
   # final_predict <- as.numeric(ar_predictions$mean)
   # # save 1 weeks forecast and observed
