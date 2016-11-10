@@ -97,9 +97,9 @@ for (pred.tpoint in pred_vector){
   preddats = list(choose_predictors1,choose_predictors2,choose_predictors3,choose_predictors4)
   
   # Choose lags
-  choose_lags1 <- c(0,0,0,1,2,2,1,1,1,1,1,0,0,1,52,4)
-  choose_lags2 <- c(0,0,0,2,3,3,2,2,2,2,2,0,0,1,52,4)
-  choose_lags3 <- c(0,0,0,3,4,4,3,3,3,3,3,0,0,1,52,4)
+  choose_lags1 <- c(0,0,0,1,2,2,1,1,1,1,1,0,0,52,1,4)
+  choose_lags2 <- c(0,0,0,2,3,3,2,2,2,2,2,0,0,52,2,4)
+  choose_lags3 <- c(0,0,0,3,4,4,3,3,3,3,3,0,0,52,3,4)
   choose_lags4 <- c(0,0,0,4,5,5,4,4,4,4,4,0,0,52,4)
   
   lagdats = list(choose_lags1,choose_lags2,choose_lags3,choose_lags4)
