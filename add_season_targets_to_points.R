@@ -18,7 +18,7 @@ library(glmnet)
 # load functions
 source("./functions.R")
 
-#
+# magic and real week converter
 real_week <- 1:52
 magic_week <- (real_week - 31 ) %% 52
 week_conv_fromreal <- data.frame(real_week=real_week,magic_week=magic_week)
@@ -102,6 +102,8 @@ point = week_conv_frommag$real_week[mean_peak + 1]
 results_combined$Value[nat_peakweek] = c(point,prob.forecast$prob) 
 
 # Save
+# remove first to columns
+results_combined <- results_combined[,-c(1,2)]
 #####################################################
 # Save file
 latest_week <- 43

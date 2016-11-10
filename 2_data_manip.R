@@ -60,4 +60,4 @@ usflu <- usflu_allyears[(last.miss.val + 1):last.prediction,]
 ###################################
 #### save
 savename <- paste0("./Data/", script_name,".Rda")
-save(usflu,usflu_allyears, file = savename)
+save(usflu,usflu_allyears,most_current_week, file = savename)
