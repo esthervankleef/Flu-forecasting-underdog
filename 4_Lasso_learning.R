@@ -196,6 +196,11 @@ for (pred.tpoint in pred_vector){
   # FAOa$o4w[i] <- observed[4]
   # 
 } ####### end of loop
+# cut away last 4 weeks, where you have nothing to compare to
+its_length <- dim(FAO[[1]])[1]
+for(s in 1:length(su)){
+  FAO[[s]] <- FAO[[s]][1:(its_length-4),]
+}
 
 #####################################################
 # What is kept in final models (using internal build cross-validation of glmnet, not my s values
@@ -285,7 +290,7 @@ load(savename)
 # Plot output
 
 # Plot predictions of all values of s
-png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/Predictions_all_s.png", width=500,height=500)
+#png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/Predictions_all_s.png", width=500,height=500)
 par(mfrow=c(2,2))
 for(w in c(1:4)){
   plot(FAO[[1]]$timepoint_reference, unlist(FAO[[1]][w*2+1]), 
@@ -299,19 +304,19 @@ for(i in 1:length(su)){
   }
 }
 
-dev.off()
+#dev.off()
 
 # Plot mse of all values of s
-png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/MSE_predictions_best_s.png", width=500,height=500)
+#png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/MSE_predictions_best_s.png", width=500,height=500)
 par(mfrow=c(2,2))
 for(w in c(1:4)){
   plot(mse_LA$s, mse_LA[,w+1], type="l", main=paste0("MSE ",w,"-week prediction"), xlab="value s", ylab="MSE")
   lines(rep(lambda_best$s[w],101),seq(0,1,0.01), lty=2,col="red")
 }
-dev.off()
+#dev.off()
 
 # Plot fit with best fitting lambda
-png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/Prediction_best_s.png", width=500,height=500)
+#png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/Prediction_best_s.png", width=500,height=500)
 cols<-c("blue","green","red","orange","purple")
 par(mfrow=c(2,2))
 for(w in c(1:4)){
@@ -325,17 +330,17 @@ for(w in c(1:4)){
  lines(FAO[[1]]$timepoint_reference, unlist(FAO[[1]][w*2]),
     col=adjustcolor(cols[5], 0.5), lwd=3,lty=2)
 }
-dev.off()
+#dev.off()
 
 # plot distribtion residuals to check normality
-png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/hist_residuals.png", width=500,height=500)
+#png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/hist_residuals.png", width=500,height=500)
 par(mfrow=c(2,2))
 for(w in c(1:4)){
   num.l = lambda_best$s.num[w]
   best.l =lambda_best$s[w]
   hist(unlist(FAO[[num.l]][w*2+1]) - unlist(FAO[[num.l]][w*2]), main=paste0(w,"-weeks distribution residuals"),xlab="Residuals")
 }
-dev.off()
+#dev.off()
 
 # Plot absolute errors
 # par(mfrow=c(2,2))
@@ -388,13 +393,13 @@ prob.forecast = data.frame(cbind(Bin_start_incl = breaks.in,w1 = rep(NA,length(b
                                  w3 = rep(NA,length(breaks.in)),w4 = rep(NA,length(breaks.in))))
 
 
-png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/density_predictions.png", width=500,height=500)
+#png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/density_predictions.png", width=500,height=500)
  par(mfrow=c(2,2))
 for(w in c(1:4)){
   prob.forecast[,w+1] = gen.prob.distr(mean=pred$mean[w], sd=pred$sd[w], log.scale=T, breaks.in=breaks.in)
   plot(breaks.in,prob.forecast[,w+1], type="l", ylab="density", main=paste0(w,"-weeks prediction density"), xlab="breaks")
 }
-dev.off()
+#dev.off()
 
 #####################################################
 # Store forecasts

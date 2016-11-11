@@ -8,26 +8,20 @@
 # Predict peak weeks
 
 rm(list=ls())
-
 script_name <- "season_forecasts"
 
 
 # libraries
 library(glmnet)
-library(cdcfluview)
 
 # load data
 load("./Data/data_manip.Rda")
 source("./functions.R")
-
-# select input variables
-DF <- usflu_allyears
-
-rm(usflu, usflu_allyears)
-
-## The data manipulation line
-DF$week <- (DF$week - 31 ) %% 52
 #
+DF <- usflu_allyears
+DF$week <- (DF$week - 31 ) %% 52
+
+# magic-real week conversion
 real_week <- 1:52
 magic_week <- (real_week - 31 ) %% 52
 week_conv_fromreal <- data.frame(real_week=real_week,magic_week=magic_week)
@@ -40,14 +34,19 @@ intensity <- start_week <- peak_week <- array(dim = length(1998:2016))
 
 # put this in manually cause coding is a massive pain
 start_week <- c(17,19,21,26,22,16,22,21,21,23,27,5,21,21,20,21,19,27)
+# the week we have in 2016
+DF_this_season <- subset(DF, year==2016)
+most_recent_20 <- 20
+weeks_to_use <- tail(DF_this_season$week,most_recent_20)
 
-X_data <- array(dim = c(length(1998:2015), length(1:18)))
+X_data <- array(dim = c(length(1998:2015), length(1:20)))
+# WE SHOULD USE SEASONS AND NOT YEARS!
 for(years in 1998:2015){
   year_data <- subset(DF, year==years)
   peak_week[years-1997] <- year_data$week[which.max(year_data$x.weighted.ili)]
   intensity[years-1997] <- year_data$x.weighted.ili[which.max(year_data$x.weighted.ili)]
   #take the last 5 weeks as predictors
-  X_data[years-1997,1:sum(year_data$week < 13 | year_data$week > 46)] <- as.numeric(year_data$x.weighted.ili[year_data$week < 13 | year_data$week > 46])
+  X_data[years-1997,1:sum(year_data$week %in% weeks_to_use)] <- as.numeric(year_data$x.weighted.ili[year_data$week %in% weeks_to_use])
 }
 
 # remove years
@@ -85,13 +84,16 @@ datfit$resstart = datfit$obsstart - datfit$fitstart
 datfit$resintensity = datfit$obsinstensity - datfit$fitintensity
 
 ## Mean prediction
-DF$weekname[979:996]
-DF$week[979:996] # week < 13 $ week > 46
+# predict from this season
+years <- 2016
+year_data <- subset(DF, year==years)
+pred_X <- as.numeric(year_data$x.weighted.ili[year_data$week %in% weeks_to_use])
 
-pred_X <- diff(as.numeric(DF$x.weighted.ili[979:996]))
-peak_week_prediction <- predict(r_fit_peak, newx = t(pred_X) , s=.5)
-start_week_prediction <- predict(r_fit_start, newx = t(pred_X) , s=.5)
-intensity_prediction <- predict(r_fit_intensity, newx = t(pred_X) , s=.5)
+
+
+peak_week_prediction <- predict(r_fit_peak, newx = t(diff(pred_X,1))  , s=.5)
+start_week_prediction <- predict(r_fit_start, newx = t(diff(pred_X,1)) , s=.5)
+intensity_prediction <- predict(r_fit_intensity, newx = t(diff(pred_X,1)) , s=.5)
 
 # rounding
 mean_peak <-  round(peak_week_prediction)
