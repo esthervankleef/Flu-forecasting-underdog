@@ -5,10 +5,10 @@
 # Topic: Statistical learning
 
 # function to return rf fit
-my_rf_fit <- function(wks_ahead,choose_predictors,choose_lags,tchoice_v,DF){
+my_rf_fit <- function(wks_ahead,my_X){
   #
   # make predictor matrix and outcome
-  X <- my_predictors_lag(choose_predictors,choose_lags,name_predictors,DF,tchoice_v)
+  X <- my_X
   Y <- DF$cases[tchoice_v]
   # train RANDOM FOREST
   Fit0.4 <- train(x = X,

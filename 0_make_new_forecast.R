@@ -11,6 +11,8 @@ script_name <- "make_new_forecast"
 ###########################################################
 # Section: Run scripts one by one
 ###########################################################
+# climate data has to be downloaded in the script, each week anew
+# google data has to be downloaded in the script, each week anew
 source('1_load_fludata.R')
 source('2_data_manip.R')
 source('3_data_manip_2.R')

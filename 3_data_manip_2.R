@@ -104,3 +104,4 @@ DF2 <- DF1[week_pos:end.timeline,]
 DF <- DF2
 savename <- paste0("./Data/", script_name,".Rda")
 save(DF,most_current_week, file = savename)
+

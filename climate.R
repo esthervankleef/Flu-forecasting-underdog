@@ -16,12 +16,12 @@ script_name <- "clim_data"
 # first and last column. Then saved this as weekly_temp_raw.csv
 
 # Load data
-clim = read.csv("./Data/Weekly_temp_raw.csv", colClasses="character")
+clim = read.csv("./Data/Weekly_temp_raw2.csv", colClasses="character")
 
 # Add week number, year 2014 has 53 weeks
-clim$week = c(c(1:52),c(1:53),c(1:52),c(1:42)) # When loading in new data, change the last figure to the current week
+clim$week = c(c(1:52),c(1:53),c(1:52),c(1:44)) # When loading in new data, change the last figure to the current week
 clim$week = ifelse(clim$week %in%c(1:9), paste0("0",clim$week), clim$week)
-clim$year = c(rep("2013",52),rep("2014",53),rep("2015",52),rep("2016",42)) # idem
+clim$year = c(rep("2013",52),rep("2014",53),rep("2015",52),rep("2016",44)) # idem
 
 # Create weekname variable
 clim$weekname = paste0(clim$year, "-",clim$week)

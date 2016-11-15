@@ -372,7 +372,7 @@ pred$sd = sd
 #####################################################
 # Generate predictions
 
-df_point = which(DF$weekname == "2016-35")
+df_point = which(DF$weekname == last.prediction)
 mean=NULL
 for(w in c(1:4)){
   wks_ahead = w
@@ -392,7 +392,6 @@ breaks.in = c(seq(0,13.0,0.1)) # Everything 13 and above will be put together in
 prob.forecast = data.frame(cbind(Bin_start_incl = breaks.in,w1 = rep(NA,length(breaks.in)),w2 = rep(NA,length(breaks.in)),
                                  w3 = rep(NA,length(breaks.in)),w4 = rep(NA,length(breaks.in))))
 
-
 #png("~/Dropbox/Forecasting Flu Challenge/Figures/LASSO/density_predictions.png", width=500,height=500)
  par(mfrow=c(2,2))
 for(w in c(1:4)){
@@ -410,7 +409,10 @@ targets = c("1 wk ahead","2 wk ahead","3 wk ahead","4 wk ahead")
 for(w in c(1:4)){
   nat_week = which(results.la$Target==targets[w] & results.la$Location=="US National")
   point = exp(pred$mean[w])-1
-  results.la$Value[nat_week] = c(point,prob.forecast[,w+1]) 
+  results.la$Value[nat_week] = c(point,prob.forecast[,w+1])
+  # check that all on right scale
+  print(breaks.in[which.max(prob.forecast[,w+1])])
+  print(point)
 }
 
 #####################################################

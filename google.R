@@ -22,7 +22,6 @@ g14 = read.csv("./Data/multiTimeline14.csv")
 g15 = read.csv("./Data/multiTimeline15.csv")
 g16 = read.csv("./Data/multiTimeline16.csv")
 
-
 gdat = list(g08,g09,g10,g11,g12,g13,g14,g15,g16)
 
 google = NULL

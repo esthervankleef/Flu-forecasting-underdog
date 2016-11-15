@@ -54,10 +54,14 @@ missing.vals <- which(is.na(usflu_allyears$cases))
 last.miss.val <- missing.vals[length(missing.vals)]
 #
 last.prediction <- dim(usflu_allyears)[1] 
+most_current_week <- paste(usflu$year[last.prediction],usflu$week[last.prediction],sep="-")
+
 usflu <- usflu_allyears[(last.miss.val + 1):last.prediction,]
 
+#
 
 ###################################
 #### save
 savename <- paste0("./Data/", script_name,".Rda")
 save(usflu,usflu_allyears,most_current_week, file = savename)
+

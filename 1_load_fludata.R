@@ -21,6 +21,3 @@ usflu_raw <- usflu
 savename <- paste0("./Data/", script_name,".Rda")
 save(usflu_raw, file = savename)
 
-
-
-

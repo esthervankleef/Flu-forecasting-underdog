@@ -65,50 +65,50 @@ choose_predictors <- list()
 choose_lags <- list()
 ###
 wks_ahead <- 4
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases","dcases",
+choose_predictors[[wks_ahead]] <- c("sin_week","cos_week","week","cases","dcases","dcases",
                                     "kids_cuddle",
-                                    "gfever","gheadache","gdoctor","gshivering","gcough"
+                                    "gfever","gheadache","gdoctor"
 )
 #
-choose_lags[[wks_ahead]] <- c(0,0,4,4,5,
+choose_lags[[wks_ahead]] <- c(0,0,0,4,4,5,
                               1,
-                              4,4,4,4,4
+                              4,4,4
 )
 ##########
 wks_ahead <- 3
 # 
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases","dcases",
+choose_predictors[[wks_ahead]] <- c("sin_week","cos_week","week","cases","dcases","dcases",
                                     "kids_cuddle",
-                                    "gfever","gheadache","gdoctor","gshivering","gcough"
+                                    "gfever","gheadache"
 )
 #
-choose_lags[[wks_ahead]] <- c(0,0,3,3,4,
+choose_lags[[wks_ahead]] <- c(0,0,0,3,3,4,
                               1,
-                              3,3,3,3,3
+                              3,3
 )
 ###########
 wks_ahead <- 2
 # 
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases","dcases",
+choose_predictors[[wks_ahead]] <- c("sin_week","cos_week","week","cases","dcases","dcases",
                                     "kids_cuddle",
-                                    "gfever","gheadache","gdoctor","gshivering","gcough"
+                                    "gheadache"
 )
 #
-choose_lags[[wks_ahead]] <- c(0,0,2,2,3,
+choose_lags[[wks_ahead]] <- c(0,0,0,2,2,3,
                               1,
-                              2,2,2,2,2
+                              2
 )
 ##########
 wks_ahead <- 1
 # 
-choose_predictors[[wks_ahead]] <- c("sin_week","week","cases","dcases","dcases",
+choose_predictors[[wks_ahead]] <- c("sin_week","cos_week","week","cases","dcases","dcases",
                                     "kids_cuddle",
-                                    "gfever","gheadache","gdoctor","gshivering","gcough"
+                                    "gheadache"
 )
 #
-choose_lags[[wks_ahead]] <- c(0,0,1,1,2,
+choose_lags[[wks_ahead]] <- c(0,0,0,1,1,2,
                               1,
-                              1,1,1,1,1
+                              1
 )
 ######################################
 ######### start loop
@@ -132,22 +132,26 @@ for (pred.tpoint in pred_vector){
   ####################################################################
   wks_ahead <- 4
   #
-  Fit0.4 <- my_rf_fit(wks_ahead,choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],tchoice_v,DF)
+  my_X <- my_predictors_lag(choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],x,DF,tchoice_v)
+  Fit0.4 <- my_rf_fit(wks_ahead,my_X)
   
   ####################################################################
   wks_ahead <- 3
   # 
-  Fit0.3 <- my_rf_fit(wks_ahead,choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],tchoice_v,DF)
+  my_X <- my_predictors_lag(choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],x,DF,tchoice_v)
+  Fit0.3 <- my_rf_fit(wks_ahead,my_X)
   
   ####################################################################  
   wks_ahead <- 2
   #
-  Fit0.2 <- my_rf_fit(wks_ahead,choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],tchoice_v,DF)
+  my_X <- my_predictors_lag(choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],x,DF,tchoice_v)
+  Fit0.2 <- my_rf_fit(wks_ahead,my_X)
   
   ####################################################################  
   wks_ahead <- 1
   # 
-  Fit0.1 <- my_rf_fit(wks_ahead,choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],tchoice_v,DF)
+  my_X <- my_predictors_lag(choose_predictors[[wks_ahead]],choose_lags[[wks_ahead]],x,DF,tchoice_v)
+  Fit0.1 <- my_rf_fit(wks_ahead,my_X)
   ###
   models = list(Fit0.1,Fit0.2,Fit0.3,Fit0.4)
   
@@ -250,7 +254,7 @@ pred$sd = my_sd
 
 #####################################################
 # Generate predictions
-df_point = which(DF$weekname == "2016-42")
+df_point = which(DF$weekname == most_current_week)
 my_mean=NULL
 # loop through the 
 for(w in c(1:4)){
@@ -291,6 +295,9 @@ for(w in c(1:4)){
   nat_week = which(results.la$Target==targets[w] & results.la$Location=="US National")
   point = exp(pred$mean[w])-1
   results.la$Value[nat_week] = c(point,prob.forecast[,w+1]) 
+  # check that all on right scale
+  print(breaks.in[which.max(prob.forecast[,w+1])])
+  print(point)
 }
 
 #####################################################
