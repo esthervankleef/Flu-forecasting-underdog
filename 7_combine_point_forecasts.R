@@ -54,7 +54,9 @@ for(w in c(1:4)){
   ###
   all_but_point <- nat_week[-1]
   sum_of_bins <- sum(results_combined$Value[all_but_point])
-  print(sum_of_bins)
+  print(weighted_combo[1])
+  all_bins <- results_combined$Bin_start_incl[nat_week][-1]
+  print(as.character(all_bins[which.max(weighted_combo[-1])]))
 }
 
 # Save

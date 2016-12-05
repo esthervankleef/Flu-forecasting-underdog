@@ -3,6 +3,22 @@
 
 ####################################
 # Topic: Statistical learning
+# function to return rf fit
+my_rf_fit2 <- function(wks_ahead,initialWindow,my_X){
+  #
+  # make predictor matrix and outcome
+  X <- my_X
+  Y <- DF$cases[tchoice_v]
+  # train RANDOM FOREST
+  Fit0.4 <- train(x = X,
+                  y = Y, 
+                  method = "rf", 
+                  trControl = myfit_control2(wks_ahead,initialWindow),
+                  verbose = FALSE,
+                  tuneGrid = NULL,
+                  tuneLength = 20,
+                  importance = FALSE)
+}
 
 # function to return rf fit
 my_rf_fit <- function(wks_ahead,my_X){
@@ -60,6 +76,17 @@ regplot <- function(x,y,...){
   plot(x,y,...)
   #
   abline(fit,col="darkred")
+}
+# exp: regplot(Price,Sales,xlab="Price",ylab="Sales",col="darkblue",pch=20)
+# my own fit control function
+myfit_control2 <- function(horizon,initialWindow){
+  # fit control timeslices for timeseries, from 2 seasons, horizon 4 weeks
+  if (horizon == 1){horizon <- 2}
+  fitControl <- trainControl(method = "timeslice",
+                             initialWindow = initialWindow,
+                             horizon = horizon,
+                             fixedWindow = TRUE)
+  return(fitControl)
 }
 # exp: regplot(Price,Sales,xlab="Price",ylab="Sales",col="darkblue",pch=20)
 # my own fit control function

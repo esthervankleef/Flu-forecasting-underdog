@@ -98,7 +98,7 @@ intensity_prediction <- predict(r_fit_intensity, newx = t(diff(pred_X,1)) , s=.5
 # rounding
 mean_peak <-  round(peak_week_prediction)
 mean_start <- round(start_week_prediction)
-mean_intensity <- round(intensity_prediction)
+mean_intensity <- intensity_prediction
 
 
 ## SD prediction
