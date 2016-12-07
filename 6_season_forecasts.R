@@ -56,7 +56,7 @@ peak_week <- peak_week[-years_to_remove]
 start_week <- start_week[-years_to_remove]
 intensity <- intensity[-years_to_remove]
 
-## 2009 is a massive outlier so removed it
+## TRY MODELLING WITH ACTUAL CASES FOR INTENSITY
 r_fit_peak <- glmnet(y=peak_week, x= t(apply(X = X_predict , 1, diff)))
 r_fit_start <- glmnet(y=start_week, x= t(apply(X = X_predict, 1, diff)))
 r_fit_intensity <- glmnet(y=intensity, x= t(apply(X = X_predict, 1, diff)))
@@ -66,6 +66,7 @@ plot(r_fit_intensity, xvar='lambda', label=T)
 plot(r_fit_start, xvar='lambda', label=T)
 plot(r_fit_peak, xvar='lambda', label=T)
 
+# PLOT DIAGONAL
 par(mfrow=c(2,2))
 plot(predict(r_fit_intensity, t(apply(X = X_predict, 1, diff)), s = .5), intensity,
      xlab='predicted', ylab = 'true', bty='n', cex.lab = 1.5);
@@ -90,6 +91,7 @@ year_data <- subset(DF, year==years)
 pred_X <- as.numeric(year_data$x.weighted.ili[year_data$week %in% weeks_to_use])
 
 
+# DO CROSS VALIDATION STEP TO DECIDE ON LAMBDA 
 
 peak_week_prediction <- predict(r_fit_peak, newx = t(diff(pred_X,1))  , s=.5)
 start_week_prediction <- predict(r_fit_start, newx = t(diff(pred_X,1)) , s=.5)

@@ -82,25 +82,21 @@ for (pred.tpoint in pred_vector){
   # make train data
   # Choose predictors
   choose_predictors1 <- c("week","sin_week","cos_week", "cases","cases", "dcases",
-                          "gfever","gheadache","gdoctor","gshivering","gcough",
                           "big_holidays","inschool","seas_total","temp_av","temp_av")
   choose_predictors2 <- c("week","sin_week","cos_week", "cases","cases", "dcases",
-                          "gfever","gheadache","gdoctor","gshivering","gcough",
                           "big_holidays","inschool","seas_total","temp_av","temp_av")
   choose_predictors3 <- c("week","sin_week","cos_week", "cases","cases", "dcases",
-                          "gfever","gheadache","gdoctor","gshivering","gcough",
                           "big_holidays","inschool","seas_total","temp_av","temp_av")
   choose_predictors4 <- c("week","sin_week","cos_week", "cases","cases", "dcases",
-                          "gfever","gheadache","gdoctor","gshivering","gcough",
                           "big_holidays","inschool","seas_total","temp_av")
   
   preddats = list(choose_predictors1,choose_predictors2,choose_predictors3,choose_predictors4)
   
   # Choose lags
-  choose_lags1 <- c(0,0,0,1,2,2,1,1,1,1,1,0,0,52,1,4)
-  choose_lags2 <- c(0,0,0,2,3,3,2,2,2,2,2,0,0,52,2,4)
-  choose_lags3 <- c(0,0,0,3,4,4,3,3,3,3,3,0,0,52,3,4)
-  choose_lags4 <- c(0,0,0,4,5,5,4,4,4,4,4,0,0,52,4)
+  choose_lags1 <- c(0,0,0,1,2,2,0,0,52,1,4)
+  choose_lags2 <- c(0,0,0,2,3,3,0,0,52,2,4)
+  choose_lags3 <- c(0,0,0,3,4,4,0,0,52,3,4)
+  choose_lags4 <- c(0,0,0,4,5,5,0,0,52,4)
   
   lagdats = list(choose_lags1,choose_lags2,choose_lags3,choose_lags4)
   
@@ -119,7 +115,7 @@ for (pred.tpoint in pred_vector){
   # train LASSO
   
   h_weights = c(1*52) # Put higher weights on last 1 year observations
-  weight_increase <- 2
+  weight_increase <- 1
   # fit LASSO regression
   
   # 1-week prediction
@@ -197,9 +193,10 @@ for (pred.tpoint in pred_vector){
   # 
 } ####### end of loop
 # cut away last 4 weeks, where you have nothing to compare to
+FAO_all <- FAO
 its_length <- dim(FAO[[1]])[1]
 for(s in 1:length(su)){
-  FAO[[s]] <- FAO[[s]][1:(its_length-4),]
+  FAO[[s]] <- FAO[[s]][1:(its_length-4),] # cut last 4 weeks
 }
 
 #####################################################
@@ -273,8 +270,6 @@ mse_ref[3] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 2))^2,na.rm = TRUE)
 mse_ref[4] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 3))^2,na.rm = TRUE)
 mse_ref[5] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 4))^2,na.rm = TRUE)
 
-
-
 # All model mse together
 eval <- rbind(mse_ref,mse_AR,mse_LA_best)
 eval
@@ -284,7 +279,6 @@ savename <- paste0("./Data/", script_name , ".Rda")
 save(FAO,eval,file = savename)
 # loading (from here can be run without re-running the loop)
 load(savename)
-
 
 #####################################################
 # Plot output
@@ -322,13 +316,15 @@ par(mfrow=c(2,2))
 for(w in c(1:4)){
   num.l = lambda_best$s.num[w]
   best.l =lambda_best$s[w]
-  plot(FAO[[1]]$timepoint_reference, unlist(FAO[[num.l]][w*2+1]), 
+  plot(FAO[[1]]$timepoint_reference, exp(unlist(FAO[[num.l]][w*2+1]))-1, 
      pch=19, cex=0.25,
      xlab="date", ylab="cases", main=paste0(w,"-week prediction best s = ", best.l))
-  lines(FAO[[num.l]]$timepoint_reference, unlist(FAO[[num.l]][w*2]),
+  lines(FAO[[num.l]]$timepoint_reference, exp(unlist(FAO[[num.l]][w*2]))-1,
       col=adjustcolor(cols[w], 0.5), lwd=3)
- lines(FAO[[1]]$timepoint_reference, unlist(FAO[[1]][w*2]),
+ lines(FAO[[1]]$timepoint_reference, exp(lag(unlist(FAO[[1]][1+w*2]),w))-1,
     col=adjustcolor(cols[5], 0.5), lwd=3,lty=2)
+ check <- exp(unlist(FAO[[num.l]][w*2]))-1
+ print(tail(check,1))
 }
 #dev.off()
 
@@ -337,7 +333,7 @@ for(w in c(1:4)){
 par(mfrow=c(2,2))
 for(w in c(1:4)){
   num.l = lambda_best$s.num[w]
-  best.l =lambda_best$s[w]
+  best.l = lambda_best$s[w]
   hist(unlist(FAO[[num.l]][w*2+1]) - unlist(FAO[[num.l]][w*2]), main=paste0(w,"-weeks distribution residuals"),xlab="Residuals")
 }
 #dev.off()
@@ -371,9 +367,9 @@ pred$sd = sd
 
 #####################################################
 # Generate predictions
-
 df_point = which(DF$weekname == last.prediction)
 mean=NULL
+mean2=NULL
 for(w in c(1:4)){
   wks_ahead = w
   tchoice_forc_v <- df_point + 1:wks_ahead
@@ -381,8 +377,20 @@ for(w in c(1:4)){
   predictions <- predict.glmnet(models[[w]], n.ahead=wks_ahead,s=lambda_best$s[w], 
                                 newx=covars_for_forecast)
   mean = c(mean, predictions[w])
+  #
+  num.l = lambda_best$s.num[w]
+  best.l =lambda_best$s[w]
+  all_predictions <- FAO_all[[num.l]][w*2]
+  last_4_predictions <- tail(all_predictions,4)
+  mean2 = c(mean2,last_4_predictions[w,])
+  #
+  
+  check <- exp(FAO_all[[num.l]][w*2])-1
+  #
+  print(tail(check,1))
 }
 pred$mean = mean 
+exp(pred$mean)-1
 
 #####################################################
 # Calculate probability of bins

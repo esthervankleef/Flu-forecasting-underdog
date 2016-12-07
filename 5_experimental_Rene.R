@@ -66,48 +66,40 @@ choose_lags <- list()
 ###
 wks_ahead <- 4
 choose_predictors[[wks_ahead]] <- c("sin_week","cos_week","week","cases","dcases","dcases",
-                                    "kids_cuddle",
-                                    "gfever","gheadache","gdoctor"
+                                    "kids_cuddle"
 )
 #
 choose_lags[[wks_ahead]] <- c(0,0,0,4,4,5,
-                              1,
-                              4,4,4
+                              1
 )
 ##########
 wks_ahead <- 3
 # 
 choose_predictors[[wks_ahead]] <- c("sin_week","cos_week","week","cases","dcases","dcases",
-                                    "kids_cuddle",
-                                    "gfever","gheadache"
+                                    "kids_cuddle"
 )
 #
 choose_lags[[wks_ahead]] <- c(0,0,0,3,3,4,
-                              1,
-                              3,3
+                              1
 )
 ###########
 wks_ahead <- 2
 # 
 choose_predictors[[wks_ahead]] <- c("sin_week","cos_week","week","cases","dcases","dcases",
-                                    "kids_cuddle",
-                                    "gheadache"
+                                    "kids_cuddle"
 )
 #
 choose_lags[[wks_ahead]] <- c(0,0,0,2,2,3,
-                              1,
-                              2
+                              1
 )
 ##########
 wks_ahead <- 1
 # 
 choose_predictors[[wks_ahead]] <- c("sin_week","cos_week","week","cases","dcases","dcases",
-                                    "kids_cuddle",
-                                    "gheadache"
+                                    "kids_cuddle"
 )
 #
 choose_lags[[wks_ahead]] <- c(0,0,0,1,1,2,
-                              1,
                               1
 )
 ######################################
@@ -219,7 +211,7 @@ mse_ref[4] <- mean((FAO$o1w - lag(FAO$o1w,n = 3))^2,na.rm = TRUE)
 mse_ref[5] <- mean((FAO$o1w - lag(FAO$o1w,n = 4))^2,na.rm = TRUE)
 # bind together
 eval <- rbind(mse_ref,mse_RF)
-
+print(eval)
 ########################################
 #### save & load
 savename <- paste0("./Data/", script_name , ".Rda")
