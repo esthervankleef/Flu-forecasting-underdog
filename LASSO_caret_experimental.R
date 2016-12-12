@@ -1,7 +1,8 @@
 require(RCurl)
 require(prettyR)
 library(e1071)
-
+#from: https://www.r-bloggers.com/cross-validation-for-predictive-analytics-using-r/
+  
 url <- "https://raw.githubusercontent.com/gastonstat/CreditScoring/master/CleanCreditScoring.csv"
 cs_data <- getURL(url)
 cs_data <- read.csv(textConnection(cs_data))
@@ -43,6 +44,7 @@ glmnet_fit <- train(Status ~ ., data = cs_data_train,
                     trControl = glmnet_ctrl)
 glmnet_fit
 
+glmnet(y=Status, x=cs)
 trellis.par.set(caretTheme())
 plot(glmnet_fit, scales = list(x = list(log = 2)))
 
