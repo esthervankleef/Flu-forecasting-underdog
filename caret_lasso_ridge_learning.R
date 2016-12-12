@@ -183,9 +183,13 @@ for (pred.tpoint in pred_vector){
   # observed values 
   observed <- DF$cases[tchoice_forc_v]
   
+  if(i == max(pred_vector))
+  par(mfrow=c(2,2))
+  plot(Fit0.1)
+  plot(Fit0.2)
+  plot(Fit0.3)
+  plot(Fit0.4)
   
-  plot(Fit0.1, scales = list(x = list(log = 2)))
-
   #####################
   ### output  
   ### save LASSO
