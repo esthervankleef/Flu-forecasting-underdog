@@ -240,3 +240,82 @@ savename <- paste0("./Data/", script_name , ".Rda")
 save(FAO,eval,file = savename)
 # loading (from here can be run without re-running the loop)
 load(savename)
+
+#####################################################
+# plot
+par(mfrow=c(2,1)) 
+# reference (naive)
+my_title <- paste("Ref 4-weeks, MSE =", as.character(round(mse_ref$mse4w,digits = 4)))
+plot(FAO$timepoint_reference,FAO$o4w,pch=19, col="black"); title(my_title)
+points(FAO$timepoint_reference,c(lag(FAO$o4w,n = 4)),pch=20,col="darkred")
+# rf
+my_title <- paste("RF 4-weeks, MSE =", as.character(round(mse_RF$mse4w,digits = 4)))
+plot(FAO$timepoint_reference,FAO$o4w,pch=19, col="black"); title(my_title)
+points(FAO$timepoint_reference,FAO$f4w,pch=20,col="darkred")
+par(mfrow=c(1,1)) 
+
+
+#####################################################
+# Calculate SD of residuals
+pred = data.frame(cbind(target = c("1week","2week","3week","4week"),mean = rep(0,4), sd = rep(0,4)))
+my_sd = NULL
+# fill in sd for each lag 
+w <- 1; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
+w <- 2; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
+w <- 3; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
+w <- 4; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
+pred$sd = my_sd
+
+#####################################################
+# Generate predictions
+df_point = which(DF$weekname == most_current_week)
+my_mean=NULL
+# loop through the 
+for(w in c(1:4)){
+  wks_ahead = w
+  # make vector
+  tchoice_forc_v <- df_point + 1:wks_ahead
+  #
+  covars_for_forecast <- as.matrix(my_predictors_lag(preddats[[w]],lagdats[[w]],name_predictors,DF,tchoice_forc_v))
+  predictions <- predict(models[[w]], covars_for_forecast) # point predictions
+  # save prediction
+  la.predictions[[w]] = predictions[wks_ahead]
+  my_mean = c(my_mean, la.prediction)
+}
+pred$mean = my_mean
+
+#####################################################
+# Calculate probability of bins
+breaks.in = c(seq(0,13.0,0.1)) # Everything 13 and above will be put together in one bin
+
+prob.forecast = data.frame(cbind(Bin_start_incl = breaks.in,w1 = rep(NA,length(breaks.in)),w2 = rep(NA,length(breaks.in)),
+                                 w3 = rep(NA,length(breaks.in)),w4 = rep(NA,length(breaks.in))))
+
+#
+par(mfrow=c(2,2))
+for(w in c(1:4)){
+  prob.forecast[,w+1] = gen.prob.distr(mean=pred$mean[w], sd=pred$sd[w], log.scale=T, breaks.in=breaks.in)
+  plot(breaks.in,prob.forecast[,w+1], type="l", ylab="density", main=paste0(w,"-weeks prediction density"), xlab="breaks")
+  
+}
+par(mfrow=c(1,1))
+
+#####################################################
+# Store forecasts
+results.lr = read.csv("./Forecasts/Submission_template.csv")
+results.lr$Value = NA
+
+targets = c("1 wk ahead","2 wk ahead","3 wk ahead","4 wk ahead")
+for(w in c(1:4)){
+  nat_week = which(results.lr$Target==targets[w] & results.lr$Location=="US National")
+  point = exp(pred$mean[w])-1
+  results.lr$Value[nat_week] = c(point,prob.forecast[,w+1]) 
+  # check that all on right scale
+  print(breaks.in[which.max(prob.forecast[,w+1])])
+  print(point)
+}
+
+#####################################################
+# Save file
+savename <- paste0("./Forecasts/", script_name, ".csv")
+write.csv(results.la,file = savename)
