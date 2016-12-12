@@ -22,7 +22,12 @@ rm(usflu_raw)
 ### modify columns names and cast columns
 # change the names
 names(usflu) <- tolower(names(usflu)) %>% 
-        gsub("..",".",., fixed=TRUE)
+        gsub(".."," ",., fixed=TRUE) %>%
+        gsub("."," ",., fixed=TRUE) %>%
+        gsub("  "," ",., fixed=TRUE) %>%
+        gsub(" ",".",., fixed=TRUE) %>%
+        gsub("%","x",., fixed =TRUE)
+
 # arrange by time
 usflu <- usflu %>% 
         arrange(year,week)
@@ -43,9 +48,13 @@ usflu <- usflu %>%
         mutate(ilitotal = as.numeric(ilitotal),
                total.patients = as.numeric(total.patients),
                x.weighted.ili = as.numeric(x.weighted.ili))
+
 # add output variable: ilitotal/total.patients
+# usflu <- usflu %>% 
+#   mutate(cases = 100*ilitotal/total.patients) THIS SHOULD BE WEIGHTED ILI CASES!! 
+
 usflu <- usflu %>% 
-  mutate(cases = 100*ilitotal/total.patients)
+     mutate(cases = x.weighted.ili)
 
 usflu_allyears <- usflu
 # cut off the NA by truncating
