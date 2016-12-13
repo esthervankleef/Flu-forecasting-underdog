@@ -28,6 +28,7 @@ week_conv_frommag <- dplyr::arrange(week_conv_fromreal,magic_week)
 #### load data
 results_combined = read.csv("./Forecasts/combine_point_forecasts.csv")
 #
+load("./Data/data_manip.Rda") # to get most recent week
 load("./Data/season_forecasts.Rda")
 
 # Intensity
@@ -106,8 +107,8 @@ results_combined$Value[nat_peakweek] = c(point,prob.forecast$prob)
 results_combined <- results_combined[,-c(1,2)]
 #####################################################
 # Save file
-latest_week <- 47 # has to be updated manually for each prediction
-date_today <- "2016-12-05" # has to be updated manually for each prediction
+latest_week <- most_current_week_int # has to be updated manually for each prediction
+date_today <- format(Sys.time(), "%Y-%m-%d") # has to be updated manually for each prediction
 # remove where we did not fill in
 check <- results_combined[is.na(results_combined$Value),]
 check <- check$Location # should only contain HHS Region

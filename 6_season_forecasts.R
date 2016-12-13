@@ -85,7 +85,7 @@ plot(predict(r_fit_intensity, t(apply(X = X_predict, 1, diff)), s = best_lambda_
      xlab='predicted', ylab = 'true', bty='n', cex.lab = 1.5);
 abline(0,1) # add diagonal 
 
-plot(predict(r_fit_start, t(apply(X = X_predict, 1, diff)), s = 1), start_week,
+plot(predict(r_fit_start, t(apply(X = X_predict, 1, diff)), s = best_lambda_sta), start_week,
      xlab='predicted', ylab = 'true', bty='n', cex.lab = 1.5);
 abline(0,1) # add diagonal
 
@@ -109,11 +109,9 @@ year_data <- subset(DF, year==years)
 pred_X <- as.numeric(year_data$x.weighted.ili[year_data$week %in% weeks_to_use])
 
 
-# DO CROSS VALIDATION STEP TO DECIDE ON LAMBDA 
-
-peak_week_prediction <- predict(r_fit_peak, newx = t(diff(pred_X,1))  , s=.5)
-start_week_prediction <- predict(r_fit_start, newx = t(diff(pred_X,1)) , s=.5)
-intensity_prediction <- predict(r_fit_intensity, newx = t(diff(pred_X,1)) , s=.5)
+peak_week_prediction <- predict(r_fit_peak, newx = t(diff(pred_X,1))  , s=best_lambda_pea)
+start_week_prediction <- predict(r_fit_start, newx = t(diff(pred_X,1)) , s=best_lambda_sta)
+intensity_prediction <- predict(r_fit_intensity, newx = t(diff(pred_X,1)) , s=best_lambda_int)
 
 # rounding
 mean_peak <-  round(peak_week_prediction)
