@@ -34,7 +34,7 @@ intensity <- start_week <- peak_week <- array(dim = length(1998:2016))
 
 # put this in manually cause coding is a massive pain
 start_week <- c(17,19,21,26,22,16,22,21,21,23,27,5,21,21,20,21,19,27)
-# the week we have in 2016
+# the weeks we have in 2016
 DF_this_season <- subset(DF, year==2016)
 most_recent_20 <- 20
 weeks_to_use <- tail(DF_this_season$week,most_recent_20)
@@ -61,19 +61,37 @@ r_fit_peak <- glmnet(y=peak_week, x= t(apply(X = X_predict , 1, diff)))
 r_fit_start <- glmnet(y=start_week, x= t(apply(X = X_predict, 1, diff)))
 r_fit_intensity <- glmnet(y=intensity, x= t(apply(X = X_predict, 1, diff)))
 
-
 plot(r_fit_intensity, xvar='lambda', label=T)
 plot(r_fit_start, xvar='lambda', label=T)
 plot(r_fit_peak, xvar='lambda', label=T)
 
-# PLOT DIAGONAL
-par(mfrow=c(2,2))
-plot(predict(r_fit_intensity, t(apply(X = X_predict, 1, diff)), s = .5), intensity,
+# cross validation to decide on lambda 
+cv_fit <- cv.glmnet(y = as.numeric(peak_week), x = t(apply(X = X_predict , 1, diff)),
+                    type.measure = "mae", nfolds = 12)
+best_lambda_pea <- cv_fit$lambda.min
+
+#
+cv_fit <- cv.glmnet(y = as.numeric(start_week), x = t(apply(X = X_predict , 1, diff)),
+                    type.measure = "mae", nfolds = 12)
+best_lambda_sta <- cv_fit$lambda.min
+#
+cv_fit <- cv.glmnet(y = as.numeric(intensity), x = t(apply(X = X_predict , 1, diff)),
+                    type.measure = "mae", nfolds = 12)
+best_lambda_int <- cv_fit$lambda.min
+
+# Plot model and actual
+par(mfrow=c(3,1))
+plot(predict(r_fit_intensity, t(apply(X = X_predict, 1, diff)), s = best_lambda_int), intensity,
      xlab='predicted', ylab = 'true', bty='n', cex.lab = 1.5);
-plot(predict(r_fit_start, t(apply(X = X_predict, 1, diff)), s = .5), start_week,
+abline(0,1) # add diagonal 
+
+plot(predict(r_fit_start, t(apply(X = X_predict, 1, diff)), s = 1), start_week,
      xlab='predicted', ylab = 'true', bty='n', cex.lab = 1.5);
-plot(predict(r_fit_peak, t(apply(X = X_predict, 1, diff)), s = .5), peak_week,
+abline(0,1) # add diagonal
+
+plot(predict(r_fit_peak, t(apply(X = X_predict, 1, diff)), s = best_lambda_pea), peak_week,
      xlab='predicted', ylab = 'true', bty='n', cex.lab = 1.5);
+abline(0,1) # add diagonal
 
 # Store fitted vs data
 datfit = data.frame(obspeak = peak_week, fitpeak = predict(r_fit_peak, t(apply(X = X_predict, 1, diff)), s = .5),
@@ -116,3 +134,4 @@ save(mean_peak,mean_start,mean_intensity,
      sd_peak,sd_start,sd_intensity, file = savename)
 
 ###################### ########### ###################
+
