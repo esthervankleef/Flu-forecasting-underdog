@@ -20,9 +20,12 @@ library(glmnet)
 #### load data
 results_la = read.csv("./Forecasts/lasso_chall_template.csv")
 results_rf = read.csv("./Forecasts/experimental_Rene.csv")
+#results_lr = read.csv("./Forecasts/caret_lasso_ridge_template.csv")
+
 #
 load("./Data/lasso_chall_template.Rda"); eval_la <- eval
 load("./Data/experimental_Rene.Rda"); eval_rf <- eval
+#load("./Data/caret_lasso_ridge_template.Rda"); eval_lr <- eval
 
 # get the weights
 ###
