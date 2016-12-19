@@ -107,14 +107,14 @@ results_combined$Value[nat_peakweek] = c(point,prob.forecast$prob)
 results_combined <- results_combined[,-c(1,2)]
 #####################################################
 # Save file
-latest_week <- most_current_week_int # has to be updated manually for each prediction
-date_today <- format(Sys.time(), "%Y-%m-%d") # has to be updated manually for each prediction
+latest_week <- as.numeric(gsub("2016-","",most_current_week))
+date_today <- format(Sys.time(), "%Y-%m-%d") 
 # remove where we did not fill in
 check <- results_combined[is.na(results_combined$Value),]
 check <- check$Location # should only contain HHS Region
 #
 results_combined <- results_combined[!is.na(results_combined$Value),]
 #
-savename <- paste0("./Forecasts/EW",latest_week,"-FORSEA_",date_today,".csv")
+savename <- paste0("./Forecasts/Submissions/EW",latest_week,"-FORSEA_",date_today,".csv")
 write.csv(results_combined,file = savename)
 
