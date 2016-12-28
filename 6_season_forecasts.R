@@ -94,9 +94,9 @@ plot(predict(r_fit_peak, t(apply(X = X_predict, 1, diff)), s = best_lambda_pea),
 abline(0,1) # add diagonal
 
 # Store fitted vs data
-datfit = data.frame(obspeak = peak_week, fitpeak = predict(r_fit_peak, t(apply(X = X_predict, 1, diff)), s = .5),
-                    obsstart = start_week, fitstart = predict(r_fit_start, t(apply(X = X_predict, 1, diff)), s = .5),
-                    obsinstensity = intensity, fitintensity = predict(r_fit_intensity, t(apply(X = X_predict, 1, diff)), s = .5))
+datfit = data.frame(obspeak = peak_week, fitpeak = predict(r_fit_peak, t(apply(X = X_predict, 1, diff)), s = best_lambda_pea), # I think these should be best fitted lambda rather than 0.5 right?
+                    obsstart = start_week, fitstart = predict(r_fit_start, t(apply(X = X_predict, 1, diff)), s = best_lambda_sta),
+                    obsinstensity = intensity, fitintensity = predict(r_fit_intensity, t(apply(X = X_predict, 1, diff)), s = best_lambda_int))
 names(datfit) = c("obspeak" ,      "fitpeak"  ,          "obsstart"    ,  "fitstart"    ,      "obsinstensity" ,"fitintensity")
 datfit$respeak = datfit$obspeak - datfit$fitpeak 
 datfit$resstart = datfit$obsstart - datfit$fitstart 
