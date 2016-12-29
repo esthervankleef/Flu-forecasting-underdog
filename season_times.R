@@ -17,11 +17,11 @@ load("./Data/data_manip.Rda")
 DF <- usflu_allyears
 
 # identify where there are 53 weeks 
-week53 = usflu$year[which(usflu$week == 53)]
+week53 = DF$year[which(DF$week == 53)]
 # give each timepoint the season name
 season=NULL
-for(i in 1:(length(unique(usflu$year))-1)){
-  if(!unique(usflu$year)[i] %in% week53){
+for(i in 1:(length(unique(DF$year)))){
+  if(!unique(DF$year)[i] %in% week53){
     s = rep(i,52)
   }
   else{
@@ -29,11 +29,12 @@ for(i in 1:(length(unique(usflu$year))-1)){
   }
   season = c(season,s)
 }
-usflu$season = season
+
+DF$season = season[1:length(DF$region.type)]
 
 # Add co-variate 
 epi.treshold = 2.2
-usflu = usflu %>% group_by(season) %>% mutate(tresh_weeks = ifelse(x.weighted.ili > epi.treshold,1,0),
+DF = DF %>% group_by(season) %>% mutate(tresh_weeks = ifelse(x.weighted.ili > epi.treshold,1,0),
                                               start_seas = ifelse(duplicated(tresh_weeks), 0, tresh_weeks),
                                               end_seas = cumsum(tresh_weeks),
                                               end_seas = ifelse(tresh_weeks==1 & end_seas==max(end_seas, na.rm=T),1,0),
@@ -48,15 +49,15 @@ usflu = usflu %>% group_by(season) %>% mutate(tresh_weeks = ifelse(x.weighted.il
 # hist(usflu$week[which(usflu$end_seas==1)], xlab = "Season", ylab="Week", main = "End season",breaks=c(1:53))
 # dev.off()
 
-m_start_seas = median(usflu$week[which(usflu$start_seas==1)])
-m_end_seas = median(usflu$week[which(usflu$end_seas==1)])
-m_peak_seas = median(usflu$week[which(usflu$peak_seas==1)])
+m_start_seas = median(DF$week[which(DF$start_seas==1)])
+m_end_seas = median(DF$week[which(DF$end_seas==1)])
+m_peak_seas = median(DF$week[which(DF$peak_seas==1)])
 
-usflu = usflu %>% mutate(m_start_seas = ifelse(week == m_start_seas,1,0),
+DF = DF %>% mutate(m_start_seas = ifelse(week == m_start_seas,1,0),
                          m_end_seas = ifelse(week == m_end_seas,1,0),
                          m_peak_seas = ifelse(week == m_peak_seas,1,0))
 
-seas_times =  usflu[,c("weekname","tresh_weeks","start_seas","end_seas",
+seas_times =  DF[,c("weekname","tresh_weeks","start_seas","end_seas",
                              "peak_seas","m_start_seas","m_end_seas","m_peak_seas")]
 
 
