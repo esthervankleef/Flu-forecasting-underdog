@@ -8,7 +8,7 @@
 # Predict peak weeks
 
 rm(list=ls())
-script_name <- "season_forecasts"
+script_name <- "season_forecasts_seasonbased"
 
 
 # libraries
@@ -19,6 +19,24 @@ load("./Data/data_manip.Rda")
 source("./functions.R")
 #
 DF <- usflu_allyears
+
+# Create season variable, each season starts at week 40
+# identify where there are 53 weeks 
+week53 = DF$year[which(DF$week == 53)]
+# give each timepoint the season name
+season=NULL
+for(i in 1:(length(unique(DF$year)))){
+  if(!unique(DF$year)[i] %in% week53){
+    s = rep(i,52)
+  }
+  else{
+    s = rep(i,53)
+  }
+  season = c(season,s)
+}
+
+DF$season = season[1:length(DF$region.type)]
+
 DF$week <- (DF$week - 31 ) %% 52
 
 # magic-real week conversion
@@ -33,28 +51,29 @@ national_baseline <- 2.2
 intensity <- start_week <- peak_week <- array(dim = length(1998:2016))
 
 # put this in manually cause coding is a massive pain
-start_week <- c(17,19,21,26,22,16,22,21,21,23,27,5,21,21,20,21,19,27)
+start_week <- c(17,19,21,26,22,16,22,21,21,23,27,5,21,21,20,21,19,27) # Not sure what these numbers are based on, visual inspection?
 # the weeks we have in 2016
-DF_this_season <- subset(DF, year==2016)
-most_recent_20 <- 20
-weeks_to_use <- tail(DF_this_season$week,most_recent_20)
+#DF_this_season <- subset(DF, year==2016)
+DF_this_season <- subset(DF, season==20)
+#most_recent_obs <- length(DF_this_season)
+weeks_to_use <- DF_this_season$week
 
-X_data <- array(dim = c(length(1998:2015), length(1:20)))
+X_data <- array(dim = c(length(2:20), length(weeks_to_use))) # Take seasons 2 until 19 (i.e. 1998/1999 until 2015/2016 as 1997/1998 has missing values)
 # WE SHOULD USE SEASONS AND NOT YEARS!
-for(years in 1998:2015){
-  year_data <- subset(DF, year==years)
-  peak_week[years-1997] <- year_data$week[which.max(year_data$x.weighted.ili)]
-  intensity[years-1997] <- year_data$x.weighted.ili[which.max(year_data$x.weighted.ili)]
+for(seasons in 2:19){
+  season_data <- subset(DF, season==seasons)
+  peak_week[seasons-1] <- season_data$week[which.max(season_data$x.weighted.ili)]
+  intensity[seasons-1] <- season_data$x.weighted.ili[which.max(season_data$x.weighted.ili)]
   #take the last 5 weeks as predictors
-  X_data[years-1997,1:sum(year_data$week %in% weeks_to_use)] <- as.numeric(year_data$x.weighted.ili[year_data$week %in% weeks_to_use])
+  X_data[seasons-1,1:sum(season_data$week %in% weeks_to_use)] <- as.numeric(season_data$x.weighted.ili[season_data$week %in% weeks_to_use])
 }
 
 # remove years
-years_to_remove <- c(1:5,12,19)
-X_predict <- X_data[-years_to_remove,]
-peak_week <- peak_week[-years_to_remove]
-start_week <- start_week[-years_to_remove]
-intensity <- intensity[-years_to_remove]
+seasons_to_remove <- c(1:5,12,19) # So remove season 1998/1999, 1999/2000, 2000/2001, 2001/2002, 2002/2003, 2009/2010 and 2015/2016
+X_predict <- X_data[-seasons_to_remove,]
+peak_week <- peak_week[-seasons_to_remove]
+start_week <- start_week[-seasons_to_remove]
+intensity <- intensity[-seasons_to_remove]
 
 ## TRY MODELLING WITH ACTUAL CASES FOR INTENSITY
 r_fit_peak <- glmnet(y=peak_week, x= t(apply(X = X_predict , 1, diff)))
@@ -104,9 +123,10 @@ datfit$resintensity = datfit$obsinstensity - datfit$fitintensity
 
 ## Mean prediction
 # predict from this season
-years <- 2016
-year_data <- subset(DF, year==years)
-pred_X <- as.numeric(year_data$x.weighted.ili[year_data$week %in% weeks_to_use])
+#years <- 2016
+season = 20
+season_data <- subset(DF, season==seasons)
+pred_X <- as.numeric(season_data$x.weighted.ili[season_data$week %in% weeks_to_use])
 
 
 peak_week_prediction <- predict(r_fit_peak, newx = t(diff(pred_X,1))  , s=best_lambda_pea)
