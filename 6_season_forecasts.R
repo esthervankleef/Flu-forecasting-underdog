@@ -8,7 +8,7 @@
 # Predict peak weeks
 
 rm(list=ls())
-script_name <- "season_forecasts_seasonbased"
+script_name <- "season_forecasts"
 
 
 # libraries
