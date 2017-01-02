@@ -63,8 +63,8 @@ start_week <- c(17,19,21,26,22,16,22,21,21,23,27,5,21,21,20,21,19,27)
 # the weeks we have in 2016
 
 DF_this_season <- subset(DF, year%in%c(2016,2017))
-most_recent_20 <- 52
-weeks_to_use <- tail(DF_this_season$week,most_recent_20)
+most_recent_weeks <- 52
+weeks_to_use <- tail(DF_this_season$week,most_recent_weeks)
 
 X_data <- array(dim = c(length(1998:2015), length(weeks_to_use)))
 # WE SHOULD USE SEASONS AND NOT YEARS!
