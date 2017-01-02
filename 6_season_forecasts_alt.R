@@ -45,7 +45,6 @@ DF[where_week53-1,my_vars] <- (DF[where_week53-1,my_vars] + DF[where_week53,my_v
 # remove week 53
 DF <- DF[-where_week53,]
 
-
 DF$week <- (DF$week - 31 ) %% 52
 
 # magic-real week conversion
@@ -63,11 +62,12 @@ intensity <- start_week <- peak_week <- array(dim = length(1998:2016))
 start_week <- c(17,19,21,26,22,16,22,21,21,23,27,5,21,21,20,21,19,27) # Not sure what these numbers are based on, visual inspection?
 # the weeks we have in 2016
 #DF_this_season <- subset(DF, year==2016)
-DF_this_season <- subset(DF, season==20)
-#most_recent_obs <- length(DF_this_season)
-weeks_to_use <- DF_this_season$week
+DF_this_season <- subset(DF, season%in%c(19,20))
+most_recent_obs <- length(DF_this_season$week)
+number_obs_to_use = 25
+weeks_to_use <- DF_this_season$week[(most_recent_obs-(number_obs_to_use-1)):most_recent_obs]
 
-X_data <- array(dim = c(length(2:20), length(weeks_to_use))) # Take seasons 2 until 19 (i.e. 1998/1999 until 2015/2016 as 1997/1998 has missing values)
+X_data <- array(dim = c(length(2:19), length(weeks_to_use))) # Take seasons 2 until 19 (i.e. 1998/1999 until 2015/2016 as 1997/1998 has missing values)
 # WE SHOULD USE SEASONS AND NOT YEARS!
 for(seasons in 2:19){
   season_data <- subset(DF, season==seasons)
@@ -133,11 +133,17 @@ datfit$resintensity = datfit$obsinstensity - datfit$fitintensity
 ## Mean prediction
 # predict from this season
 #years <- 2016
-season = 20
-season_data <- subset(DF, season==seasons)
-pred_X <- as.numeric(season_data$x.weighted.ili[season_data$week %in% weeks_to_use])
-
-
+seasons = c(19,20)
+season_data <- subset(DF, season%in%seasons)
+dup_weeks = which(duplicated(season_data$week))
+if(length(dup_weeks)>0){
+  dup_weeks = max(dup_weeks)
+  rows_to_use = c((dup_weeks - 51):dup_weeks)
+  rows_to_use = rows_to_use[(length(rows_to_use)-(number_obs_to_use-1)):length(rows_to_use)]
+  pred_X <- as.numeric(season_data$x.weighted.ili[rows_to_use])
+}else{
+  pred_X <- as.numeric(season_data$x.weighted.ili[season_data$week %in% weeks_to_use])
+}
 peak_week_prediction <- predict(r_fit_peak, newx = t(diff(pred_X,1))  , s=best_lambda_pea)
 start_week_prediction <- predict(r_fit_start, newx = t(diff(pred_X,1)) , s=best_lambda_sta)
 intensity_prediction <- predict(r_fit_intensity, newx = t(diff(pred_X,1)) , s=best_lambda_int)
