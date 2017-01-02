@@ -34,8 +34,17 @@ for(i in 1:(length(unique(DF$year)))){
   }
   season = c(season,s)
 }
-
 DF$season = season[1:length(DF$region.type)]
+
+# get rid of 53 week
+week53_names <- paste(week53,"53",sep="-")
+where_week53 <- which(DF$weekname %in% week53_names)
+my_vars = c("x.weighted.ili","ilitotal", "total.patients","cases")  
+# take mean
+DF[where_week53-1,my_vars] <- (DF[where_week53-1,my_vars] + DF[where_week53,my_vars])/2
+# remove week 53
+DF <- DF[-where_week53,]
+
 
 DF$week <- (DF$week - 31 ) %% 52
 
