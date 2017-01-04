@@ -8,6 +8,7 @@ script_name <- "plot_performance"
 # libraries
 library(ggplot2)
 library(dplyr)
+library(RColorBrewer)
 ########################################
 #### load data
 # flu data
@@ -38,31 +39,41 @@ for(i in 1:length(ldf)){
   datas_seas = rbind(datas_seas, data_seas)
 }
 
+
 DF1 = DF %>% filter(hyear==2016&hweek>=40|hyear==2017)
 DF1$plot_week = c(1:length(DF1$hweek)) # Create a dummy variable so the weeks can plotted chronologically, then plot without axis and add labels manually after
 datas_point$plot_week = ifelse(datas_point$week%in%c(43:52),datas_point$pred_week-39,datas_point$pred_week+13) # This is to make sure that the actual week is aligning with the plotted week
 datas_seas$plot_week = ifelse(datas_seas$Value%in%c(43:52),datas_seas$Value-39,datas_seas$Value+13) # This is to make sure that the actual week is aligning with the plotted week
 
+DF2 = DF1[!is.na(DF1$x.weighted.ili),]
+
+cols=grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)]
+f = 10
 pdf("./Forecasts/National predictions.pdf", width=7,height=5)  
 par(mfrow=c(1,1))
 plot(DF1$plot_week, DF1$x.weighted.ili, ylim=c(0,8), axes=F, ylab="Cases",xlab="Week",type="l",
      lwd=6, main=paste("National Influenza Forecast 2016/2017"),
      col="grey")
-lines(rep(2.2, 52), lty=2) # Plot treshold
 axis(2, at=0:8, labels=c(0:8))
 axis(1, at=1:length(DF1$hweek), labels=DF1$hweek)
+polygon(c(DF2$plot_week, rev(DF2$plot_week)), c(DF2$x.weighted.ili+0.5, rev(DF2$x.weighted.ili-0.5)),
+        col = "gray87", border = NA)
+lines(rep(2.2, 52), lty=2) # Plot treshold
+lines(DF2$plot_week, DF2$x.weighted.ili-0.5,lty=3,col="red")
+lines(DF2$plot_week, DF2$x.weighted.ili+0.5,lty=3,col="red")
+lines(DF2$plot_week, DF2$x.weighted.ili,lwd=6)
 for(i in 1:length(unique(datas_point$week))){ # Plot for each prediction week the 4 mean point predictions
   plot = datas_point[datas_point$week==i+42,]
-  points(plot$plot_week,plot$Value, col=i, pch=16)
-  lines(plot$plot_week,plot$Value, col=i, pch=16)
-  text(x=42, y=8-i+0.8,labels = paste("week",i+42), col=i)
+  points(plot$plot_week,plot$Value, col=cols[(i+f)*3], pch=16)
+  lines(plot$plot_week,plot$Value, col=cols[(i+f)*3], pch=16)
+  text(x=42, y=8-i+0.8,labels = paste("week",i+42), col=cols[(i+f)*3])
 }
 for(i in 1:length(unique(datas_seas$week))){ # Plot for each prediction week the mean season targets
   for(f in c("Season onset","Season peak week")){
     p = ifelse(f=="Season onset",1,2)
     plot = datas_seas[datas_seas$week==i+42&datas_seas$Target==f&datas_seas$Type=="Point",]
     intense = datas_seas[datas_seas$week==i+42&datas_seas$Target=="Season peak percentage"&datas_seas$Type=="Point",]
-    points(x=plot$plot_week,y=intense$Value, col=i, pch=p)
+    points(x=plot$plot_week,y=intense$Value, col=cols[(i+f)*3], pch=p)
   }
 }
 legend(x = 1, y= 8, pch=c(1,2), legend=c("Season onset", "Season peak week"))
@@ -79,6 +90,10 @@ DF3 = datas_seas %>% filter(Target=="Season peak week"&Type!="Point"&
                               data_seas$Bin_start_incl!="none")%>%mutate(Bin_start_incl_plot = as.numeric(as.character(Bin_start_incl)))%>%
   mutate(Bin_start_incl_plot = ifelse(Bin_start_incl_plot%in%c(40:52),Bin_start_incl_plot-39,Bin_start_incl_plot+13))
 
+DF4 = datas_seas %>% filter(Target=="Season peak percentage"&Type!="Point"&
+                              data_seas$Bin_start_incl!="none")%>%mutate(Bin_start_incl_plot = as.numeric(as.character(Bin_start_incl)))%>%
+  mutate(Bin_start_incl_plot = ifelse(Bin_start_incl_plot%in%c(40:52),Bin_start_incl_plot-39,Bin_start_incl_plot+13))
+
 # Plot predicted season onset distribution for each prediction week
 g_onset = ggplot(DF2, aes(x=Bin_start_incl_plot,y=Value,col=factor(week),group=factor(week)))+geom_point()+scale_x_discrete("week",limits=unique(DF2$Bin_start_incl))+theme_bw()+
   ggtitle(paste("National Influenza Forecast 2016/2017\n Season onset week"))+ylab("Probability")+ylim(0,1)+geom_line()+
@@ -91,9 +106,15 @@ g_peak = ggplot(DF3, aes(x=Bin_start_incl_plot,y=Value,col=factor(week),group=fa
   theme(legend.position = c(0.1, 0.7))+
   guides(col=guide_legend(title="Prediction week"))
 
+# Plot predicted intensity distribution for each prediction week
+g_intens = ggplot(DF4, aes(x=Bin_start_incl_plot,y=Value,col=factor(week),group=factor(week)))+geom_point()+scale_x_discrete("week",limits=unique(DF2$Bin_start_incl))+theme_bw()+
+  ggtitle(paste("National Influenza Forecast 2016/2017\n Season intensity"))+ylab("Probability")+ylim(0,1)+geom_line()+
+  theme(legend.position = c(0.1, 0.7))+
+  guides(col=guide_legend(title="Prediction week"))
+
 # Save season targets
-pdf("./Forecasts/Season_predictions.pdf", width=8, height=8)
-multiplot(g_onset,g_peak)
+pdf("./Forecasts/Season_predictions.pdf", width=8, height=10)
+multiplot(g_onset,g_peak,g_intens)
 dev.off()
 
 # Plot latest prediction
