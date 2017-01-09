@@ -13,7 +13,7 @@ script_name <- "season_forecasts"
 
 # libraries
 library(glmnet)
-
+library(Hmisc)
 # load data
 load("./Data/data_manip.Rda")
 source("./functions.R")
@@ -150,14 +150,30 @@ intensity_prediction <- predict(r_fit_intensity, newx = t(diff(pred_X,1)) , s=be
 # rounding
 mean_peak <-  round(peak_week_prediction)
 mean_start <- round(start_week_prediction)
-mean_intensity <- intensity_prediction
+#mean_intensity <- intensity_prediction
 
+# The mean predicted intensity is currently exactly the same as the mean of all observations:
+#mean_intensity
+#mean(intensity) # This is because the model cannot use the information of the slope of the season
+
+# The same is true for the sd 
+#sd(intensity)
+#sd(datfit$resintensity)
+
+# Try using a weighted mean with more weights on last three years
+y = 1
+w.sd = c(rep(1,length(datfit$respeak)-y),rep(20,y))
 
 ## SD prediction
+#sd_peak = sqrt(wtd.var(datfit$respeak,weights=w.sd))
+#sd_start = sqrt(wtd.var(datfit$resstart,weights=w.sd))
 sd_peak = sd(datfit$respeak)
 sd_start = sd(datfit$resstart)
-sd_intensity = sd(datfit$resintensity)
 
+#sd_intensity = sqrt(wtd.var(datfit$resintensity,weights=w.sd))
+
+mean_intensity = wtd.mean(intensity,weights=w.sd)
+sd_intensity = sqrt(wtd.var(intensity,weights=w.sd))/2 # Divided by two is just arbitrarily done to create more certainty
 
 ########################################
 #### save
@@ -165,3 +181,4 @@ savename <- paste0("./Data/", script_name, ".Rda")
 save(mean_peak,mean_start,mean_intensity,
      sd_peak,sd_start,sd_intensity, file = savename)
 
+#ggplot(DF, aes(x=week,y=x.weighted.ili))+geom_line()+facet_wrap(~season,ncol=3)

@@ -15,7 +15,7 @@ library(forecast)
 library(randomForest)
 library(caret)
 library(glmnet)
-
+library(Hmisc)
 load("./Data/data_manip_2.Rda")
 
 ###
@@ -191,24 +191,28 @@ FAO <- FAO[1:(its_length-4),]
 
 # evaluate
 #####################################################
+p = which(DF$weekname==last.prediction) - which(DF$weekname==first.prediction)-4
+p.last = which(DF$weekname==last.prediction) - which(DF$weekname=="2016-40")
+weights = 10
+w.mse=c(rep(1,(p-p.last+1)),rep(weights,p.last)) # weights to use for mse (give more weight to predictions from this season)
 
 # RF MSE
 mse_RF = data.frame(cbind(model = rep("Random Forest",1), mse1w = rep(NA,1),
                           mse2w = rep(NA,1),mse3w = rep(NA,1),
                           mse4w = rep(NA,1)))
-mse_RF[2] <- mean((FAO$o1w - FAO$f1w)^2)
-mse_RF[3] <- mean((FAO$o2w - FAO$f2w)^2)
-mse_RF[4] <- mean((FAO$o3w - FAO$f3w)^2)
-mse_RF[5] <- mean((FAO$o4w - FAO$f4w)^2)
+mse_RF[2] <- wtd.mean((FAO$o1w - FAO$f1w)^2,weights=w.mse)
+mse_RF[3] <- wtd.mean((FAO$o2w - FAO$f2w)^2,weights=w.mse)
+mse_RF[4] <- wtd.mean((FAO$o3w - FAO$f3w)^2,weights=w.mse)
+mse_RF[5] <- wtd.mean((FAO$o4w - FAO$f4w)^2,weights=w.mse)
 
 # Reference model MSE
 mse_ref = data.frame(cbind(model = rep("Model0",1), mse1w = rep(NA,1),
                            mse2w = rep(NA,1),mse3w = rep(NA,1),
                            mse4w = rep(NA,1)))
-mse_ref[2] <- mean((FAO$o1w - lag(FAO$o1w,n = 1))^2,na.rm = TRUE)
-mse_ref[3] <- mean((FAO$o1w - lag(FAO$o1w,n = 2))^2,na.rm = TRUE)
-mse_ref[4] <- mean((FAO$o1w - lag(FAO$o1w,n = 3))^2,na.rm = TRUE)
-mse_ref[5] <- mean((FAO$o1w - lag(FAO$o1w,n = 4))^2,na.rm = TRUE)
+mse_ref[2] <- wtd.mean((FAO$o1w - lag(FAO$o1w,n = 1))^2,weights=w.mse,na.rm = TRUE)
+mse_ref[3] <- wtd.mean((FAO$o1w - lag(FAO$o1w,n = 2))^2,weights=w.mse,na.rm = TRUE)
+mse_ref[4] <- wtd.mean((FAO$o1w - lag(FAO$o1w,n = 3))^2,weights=w.mse,na.rm = TRUE)
+mse_ref[5] <- wtd.mean((FAO$o1w - lag(FAO$o1w,n = 4))^2,weights=w.mse,na.rm = TRUE)
 # bind together
 eval <- rbind(mse_ref,mse_RF)
 print(eval)
@@ -238,10 +242,10 @@ par(mfrow=c(1,1))
 pred = data.frame(cbind(target = c("1week","2week","3week","4week"),mean = rep(0,4), sd = rep(0,4)))
 my_sd = NULL
 # fill in sd for each lag 
-w <- 1; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
-w <- 2; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
-w <- 3; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
-w <- 4; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sd(my_v))
+w <- 1; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sqrt(wtd.var(my_v,weights=w.mse)))
+w <- 2; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sqrt(wtd.var(my_v,weights=w.mse)))
+w <- 3; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sqrt(wtd.var(my_v,weights=w.mse)))
+w <- 4; my_v <- (FAO[w*2+1] - FAO[w*2])[[1]]; my_sd <-  c(my_sd,sqrt(wtd.var(my_v,weights=w.mse)))
 pred$sd = my_sd
 
 #####################################################
