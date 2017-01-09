@@ -48,7 +48,7 @@ datas_seas$plot_week = ifelse(datas_seas$Value%in%c(43:52),datas_seas$Value-39,d
 DF2 = DF1[!is.na(DF1$x.weighted.ili),]
 
 cols=grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)]
-f = 10
+k = 10
 pdf("./Forecasts/National predictions.pdf", width=7,height=5)  
 par(mfrow=c(1,1))
 plot(DF1$plot_week, DF1$x.weighted.ili, ylim=c(0,8), axes=F, ylab="Cases",xlab="Week",type="l",
@@ -64,16 +64,16 @@ lines(DF2$plot_week, DF2$x.weighted.ili+0.5,lty=3,col="red")
 lines(DF2$plot_week, DF2$x.weighted.ili,lwd=6)
 for(i in 1:length(unique(datas_point$week))){ # Plot for each prediction week the 4 mean point predictions
   plot = datas_point[datas_point$week==i+42,]
-  points(plot$plot_week,plot$Value, col=cols[(i+f)*3], pch=16)
-  lines(plot$plot_week,plot$Value, col=cols[(i+f)*3], pch=16)
-  text(x=42, y=8-i+0.8,labels = paste("week",i+42), col=cols[(i+f)*3])
+  points(plot$plot_week,plot$Value, col=cols[(i+k)*3], pch=16)
+  lines(plot$plot_week,plot$Value, col=cols[(i+k)*3], pch=16)
+  text(x=42, y=8-i+0.8,labels = paste("week",i+42), col=cols[(i+k)*3])
 }
 for(i in 1:length(unique(datas_seas$week))){ # Plot for each prediction week the mean season targets
   for(f in c("Season onset","Season peak week")){
     p = ifelse(f=="Season onset",1,2)
     plot = datas_seas[datas_seas$week==i+42&datas_seas$Target==f&datas_seas$Type=="Point",]
     intense = datas_seas[datas_seas$week==i+42&datas_seas$Target=="Season peak percentage"&datas_seas$Type=="Point",]
-    points(x=plot$plot_week,y=intense$Value, col=cols[(i+f)*3], pch=p)
+    points(x=plot$plot_week,y=intense$Value, col=cols[(i+k)*3], pch=p)
   }
 }
 legend(x = 1, y= 8, pch=c(1,2), legend=c("Season onset", "Season peak week"))
