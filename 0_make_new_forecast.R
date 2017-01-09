@@ -14,9 +14,9 @@ script_name <- "make_new_forecast"
 # climate data has to be downloaded in the script, each week anew
 # google data has to be downloaded in the script, each week anew
 source('1_load_fludata.R')
+source('climate.R')
 source('2_data_manip.R')
 source('3_data_manip_2.R')
-source('climate.R')
 source('4_Lasso_learning.R')
 source('5_experimental_Rene.R')
 source('6_season_forecasts.R')
