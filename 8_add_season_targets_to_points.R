@@ -41,6 +41,16 @@ check  = (results_combined[nat_peakweek,])
 bins = unique(check$Bin_start_incl)[!unique(check$Bin_start_incl)%in%c("none")]
 bins = as.numeric(as.character(bins[2:length(bins)])) # remove NA
 bins = c(bins)  
+
+# Intensity will be above 3.4 (-5, as five bins below still count in scoring) for sure, so we can give 0 prob to all bins lower than that 
+# Also, we don't expect the intensity to be higher than 7.6 (this is the max of the prediction
+# interval of all models entering the competition)
+# Do this to create more certainty in our prediction
+# 
+bins.rem.low = bins[bins<=3]
+bins.rem.high = bins[bins>=7.7]
+
+bins = bins[bins>3 & bins<7.7]
 #
 breaks.in = as.numeric(as.character(bins))
 prob.forecast = data.frame(cbind(Bin_start_incl = breaks.in,prob = rep(NA,length(breaks.in))))
@@ -49,7 +59,7 @@ prob.forecast$prob = gen.prob.distr(mean=mean_intensity, sd=sd_intensity, log.sc
 plot(breaks.in,prob.forecast$prob, type="l", ylab="density", main=targets, xlab="breaks")
 # put into data frame
 point = mean_intensity
-results_combined$Value[nat_peakweek] = c(point,prob.forecast$prob) 
+results_combined$Value[nat_peakweek] = c(point,rep(0,length(bins.rem.low)),prob.forecast$prob,rep(0,length(bins.rem.high))) 
 
 # Start week
 #########################
@@ -76,6 +86,10 @@ prob.forecast <- prob.forecast[!find_weeks,]
 point = week_conv_frommag$real_week[mean_start + 1]
 results_combined$Value[nat_peakweek] = c(point,prob.forecast$prob,none_bin) 
 
+# Season onset has occurred therefore:
+onset = which(prob.forecast$Bin_start_incl==50)
+point = 50
+results_combined$Value[nat_peakweek] = c(point,rep(0,onset-1),1,rep(0,(length(prob.forecast$prob)-(onset-1)))) 
 
 # Peak week
 #########################
