@@ -15,7 +15,7 @@ library(forecast)
 library(randomForest)
 library(caret)
 library(glmnet)
-
+library(Hmisc)
 ########################################
 #### load data
 # flu data
@@ -114,8 +114,8 @@ for (pred.tpoint in pred_vector){
   ###############################################
   # train LASSO
   
-  h_weights = c(1*52) # Put higher weights on last 1 year observations
-  weight_increase <- 1
+  h_weights = which(DF$weekname==last.prediction) - which(DF$weekname=="2016-40") # Put higher weights on last h_weight observations
+  weight_increase <- 5
   # fit LASSO regression
   
   # 1-week prediction
@@ -221,16 +221,21 @@ dat_coefs
 
 #####################################################
 # evaluate
-
+p = which(DF$weekname==last.prediction) - which(DF$weekname==first.prediction)-4
+p.last = which(DF$weekname==last.prediction) - which(DF$weekname=="2016-40")
+weights = 10
 # LASSO MSE - generates for each seperate value of s an mse
 mse_LA = data.frame(cbind(s = unique(su), mse1w = rep(NA,length(su)),
                           mse2w = rep(NA,length(su)),mse3w = rep(NA,length(su)),
                           mse4w = rep(NA,length(su))))
+
+w.mse=c(rep(1,(p-p.last+1)),rep(weights,p.last)) # weights to use for mse (give more weight to predictions from this season)
+
 for(i in 1:length(su)){
-  mse_LA$mse1w[i] <- mean((FAO[[i]]$o1w - FAO[[i]]$f1w)^2)
-  mse_LA$mse2w[i] <- mean((FAO[[i]]$o2w - FAO[[i]]$f2w)^2)
-  mse_LA$mse3w[i] <- mean((FAO[[i]]$o3w - FAO[[i]]$f3w)^2)
-  mse_LA$mse4w[i] <- mean((FAO[[i]]$o4w - FAO[[i]]$f4w)^2)
+  mse_LA$mse1w[i] <- wtd.mean((FAO[[i]]$o1w - FAO[[i]]$f1w)^2,weights=w.mse)
+  mse_LA$mse2w[i] <- wtd.mean((FAO[[i]]$o2w - FAO[[i]]$f2w)^2,weights=w.mse)
+  mse_LA$mse3w[i] <- wtd.mean((FAO[[i]]$o3w - FAO[[i]]$f3w)^2,weights=w.mse)
+  mse_LA$mse4w[i] <- wtd.mean((FAO[[i]]$o4w - FAO[[i]]$f4w)^2,weights=w.mse)
 }
 
 # Extract best fitting lambda for each target week
@@ -265,10 +270,10 @@ mse_AR[5] <- mean((FAOa$o4w - FAOa$f4w)^2)
 mse_ref = data.frame(cbind(model = rep("Model0",1), mse1w = rep(NA,1),
                           mse2w = rep(NA,1),mse3w = rep(NA,1),
                           mse4w = rep(NA,1)))
-mse_ref[2] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 1))^2,na.rm = TRUE)
-mse_ref[3] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 2))^2,na.rm = TRUE)
-mse_ref[4] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 3))^2,na.rm = TRUE)
-mse_ref[5] <- mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 4))^2,na.rm = TRUE)
+mse_ref[2] <- wtd.mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 1))^2,weights =w.mse,na.rm = TRUE)
+mse_ref[3] <- wtd.mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 2))^2,weights=w.mse,na.rm = TRUE)
+mse_ref[4] <- wtd.mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 3))^2,weights =w.mse,na.rm = TRUE)
+mse_ref[5] <- wtd.mean((FAO[[1]]$o1w - lag(FAO[[1]]$o1w,n = 4))^2,weights=w.mse,na.rm = TRUE)
 
 # All model mse together
 eval <- rbind(mse_ref,mse_AR,mse_LA_best)
@@ -361,7 +366,7 @@ sd = NULL
 for(w in c(1:4)){
   num.l = lambda_best$s.num[w]
   best.l =lambda_best$s[w]
-  sd = c(sd,sd(unlist(FAO[[num.l]][w*2+1]) - unlist(FAO[[num.l]][w*2])))
+  sd = c(sd,sqrt(wtd.var(unlist(FAO[[num.l]][w*2+1]) - unlist(FAO[[num.l]][w*2]),weights=w.mse)))
 }
 pred$sd = sd
 

@@ -13,7 +13,7 @@ script_name <- "season_forecasts"
 
 # libraries
 library(glmnet)
-library(Hmisc)
+
 # load data
 load("./Data/data_manip.Rda")
 source("./functions.R")
@@ -59,29 +59,30 @@ national_baseline <- 2.2
 intensity <- start_week <- peak_week <- array(dim = length(1998:2016))
 
 # put this in manually cause coding is a massive pain
-start_week <- c(17,19,21,26,22,16,22,21,21,23,27,5,21,21,20,21,19,27)
+start_week <- c(17,19,21,26,22,16,22,21,21,23,27,5,21,21,20,21,19,27) # Not sure what these numbers are based on, visual inspection?
 # the weeks we have in 2016
+#DF_this_season <- subset(DF, year==2016)
+DF_this_season <- subset(DF, season%in%c(19,20))
+most_recent_obs <- length(DF_this_season$week)
+number_obs_to_use = 25
+weeks_to_use <- DF_this_season$week[(most_recent_obs-(number_obs_to_use-1)):most_recent_obs]
 
-DF_this_season <- subset(DF, year%in%c(2016,2017))
-most_recent_weeks <- 52
-weeks_to_use <- tail(DF_this_season$week,most_recent_weeks)
-
-X_data <- array(dim = c(length(1998:2015), length(weeks_to_use)))
+X_data <- array(dim = c(length(2:19), length(weeks_to_use))) # Take seasons 2 until 19 (i.e. 1998/1999 until 2015/2016 as 1997/1998 has missing values)
 # WE SHOULD USE SEASONS AND NOT YEARS!
-for(years in 1998:2015){
-  year_data <- subset(DF, year==years)
-  peak_week[years-1997] <- year_data$week[which.max(year_data$x.weighted.ili)]
-  intensity[years-1997] <- year_data$x.weighted.ili[which.max(year_data$x.weighted.ili)]
+for(seasons in 2:19){
+  season_data <- subset(DF, season==seasons)
+  peak_week[seasons-1] <- season_data$week[which.max(season_data$x.weighted.ili)]
+  intensity[seasons-1] <- season_data$x.weighted.ili[which.max(season_data$x.weighted.ili)]
   #take the last 5 weeks as predictors
-  X_data[years-1997,1:sum(year_data$week %in% weeks_to_use)] <- as.numeric(year_data$x.weighted.ili[year_data$week %in% weeks_to_use])
+  X_data[seasons-1,1:sum(season_data$week %in% weeks_to_use)] <- as.numeric(season_data$x.weighted.ili[season_data$week %in% weeks_to_use])
 }
 
 # remove years
-years_to_remove <- c(1:5,12,19)
-X_predict <- X_data[-years_to_remove,]
-peak_week <- peak_week[-years_to_remove]
-start_week <- start_week[-years_to_remove]
-intensity <- intensity[-years_to_remove]
+seasons_to_remove <- c(1:5,12,19) # So remove season 1998/1999, 1999/2000, 2000/2001, 2001/2002, 2002/2003, 2009/2010 and 2015/2016
+X_predict <- X_data[-seasons_to_remove,]
+peak_week <- peak_week[-seasons_to_remove]
+start_week <- start_week[-seasons_to_remove]
+intensity <- intensity[-seasons_to_remove]
 
 ## TRY MODELLING WITH ACTUAL CASES FOR INTENSITY
 r_fit_peak <- glmnet(y=peak_week, x= t(apply(X = X_predict , 1, diff)))
@@ -131,18 +132,18 @@ datfit$resintensity = datfit$obsinstensity - datfit$fitintensity
 
 ## Mean prediction
 # predict from this season
-years <- c(2016,2017)
-year_data <- subset(DF, year%in%years)
-most_recent_week = which(duplicated(year_data$week)) # This is to make sure that the most recent weeks in the new year (i.e in 2017) are used rather than those of 2016 (e.g. Jan 2017 rather than Jan 2016)
-if(length(most_recent_week)>0){
-  most_recent_week = max(which(duplicated(year_data$week)))
-  rows_to_use = c((most_recent_week-51):most_recent_week)
-  rows_to_use = tail(rows_to_use,length(weeks_to_use))
-  pred_X <- as.numeric(year_data$x.weighted.ili[rows_to_use])
+#years <- 2016
+seasons = c(19,20)
+season_data <- subset(DF, season%in%seasons)
+dup_weeks = which(duplicated(season_data$week))
+if(length(dup_weeks)>0){
+  dup_weeks = max(dup_weeks)
+  rows_to_use = c((dup_weeks - 51):dup_weeks)
+  rows_to_use = rows_to_use[(length(rows_to_use)-(number_obs_to_use-1)):length(rows_to_use)]
+  pred_X <- as.numeric(season_data$x.weighted.ili[rows_to_use])
 }else{
-  pred_X <- as.numeric(year_data$x.weighted.ili[year_data$week %in% weeks_to_use])
+  pred_X <- as.numeric(season_data$x.weighted.ili[season_data$week %in% weeks_to_use])
 }
-
 peak_week_prediction <- predict(r_fit_peak, newx = t(diff(pred_X,1))  , s=best_lambda_pea)
 start_week_prediction <- predict(r_fit_start, newx = t(diff(pred_X,1)) , s=best_lambda_sta)
 intensity_prediction <- predict(r_fit_intensity, newx = t(diff(pred_X,1)) , s=best_lambda_int)
@@ -150,30 +151,14 @@ intensity_prediction <- predict(r_fit_intensity, newx = t(diff(pred_X,1)) , s=be
 # rounding
 mean_peak <-  round(peak_week_prediction)
 mean_start <- round(start_week_prediction)
-#mean_intensity <- intensity_prediction
+mean_intensity <- intensity_prediction
 
-# The mean predicted intensity is currently exactly the same as the mean of all observations:
-#mean_intensity
-#mean(intensity) # This is because the model cannot use the information of the slope of the season
-
-# The same is true for the sd 
-#sd(intensity)
-#sd(datfit$resintensity)
-
-# Try using a weighted mean with more weights on last three years
-y = 1
-w.sd = c(rep(1,length(datfit$respeak)-y),rep(20,y))
 
 ## SD prediction
-#sd_peak = sqrt(wtd.var(datfit$respeak,weights=w.sd))
-#sd_start = sqrt(wtd.var(datfit$resstart,weights=w.sd))
 sd_peak = sd(datfit$respeak)
 sd_start = sd(datfit$resstart)
+sd_intensity = sd(datfit$resintensity)
 
-#sd_intensity = sqrt(wtd.var(datfit$resintensity,weights=w.sd))
-
-mean_intensity = wtd.mean(intensity,weights=w.sd)
-sd_intensity = sqrt(wtd.var(intensity,weights=w.sd))/2 # Divided by two is just arbitrarily done to create more certainty
 
 ########################################
 #### save
@@ -181,4 +166,5 @@ savename <- paste0("./Data/", script_name, ".Rda")
 save(mean_peak,mean_start,mean_intensity,
      sd_peak,sd_start,sd_intensity, file = savename)
 
-#ggplot(DF, aes(x=week,y=x.weighted.ili))+geom_line()+facet_wrap(~season,ncol=3)
+###################### ########### ###################
+

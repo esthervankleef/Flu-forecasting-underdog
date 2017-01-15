@@ -2,7 +2,7 @@
 
 ## title: "Forecasting Flu Template"
 ## author: "Underdog"
-## date: "20 October 2016"
+## date: "12 December 2016"
 
 # empty workspace
 rm(list = ls())
@@ -318,4 +318,4 @@ for(w in c(1:4)){
 #####################################################
 # Save file
 savename <- paste0("./Forecasts/", script_name, ".csv")
-write.csv(results.la,file = savename)
+write.csv(results.lr,file = savename)
