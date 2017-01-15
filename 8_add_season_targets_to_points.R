@@ -116,5 +116,5 @@ check <- check$Location # should only contain HHS Region
 results_combined <- results_combined[!is.na(results_combined$Value),]
 #
 savename <- paste0("./Forecasts/EW",latest_week,"-FORSEA_",date_today,".csv")
-write.csv(results_combined,file = savename)
+write.csv(results_combined,file = savename, row.names = F)
 
