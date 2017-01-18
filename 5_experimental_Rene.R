@@ -193,7 +193,7 @@ FAO <- FAO[1:(its_length-4),]
 #####################################################
 p = which(DF$weekname==last.prediction) - which(DF$weekname==first.prediction)-4
 p.last = which(DF$weekname==last.prediction) - which(DF$weekname=="2016-40")
-weights = 10
+weights = 1
 w.mse=c(rep(1,(p-p.last+1)),rep(weights,p.last)) # weights to use for mse (give more weight to predictions from this season)
 
 # RF MSE

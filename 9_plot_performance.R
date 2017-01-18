@@ -29,20 +29,33 @@ for(i in 1:length(ldf)){
   }
   data_point = data[data$Type =="Point" & data$Location == "US National"&
                       data$Target %in% c("1 wk ahead","2 wk ahead","3 wk ahead","4 wk ahead"),]
-   
-  data_point$pred_week = c(42+i+c(1:4)) # Add the prediction week for plotting reference
-  data_point$week = rep(42+i,length(data_point$Location))
+  p_week = ifelse(i %in%c(1:10),(42+i)+c(1:4),(-10+i)+c(1:4))
+  p_week = c(p_week+c(0:3))
+  p_week[4] = ifelse(p_week[1]==50,1,
+                     ifelse(p_week[1]==51,2,
+                            ifelse(p_week[1]==52,3,
+                                   ifelse(p_week[1]==53,4,p_week[4]))))
+  p_week[3] = ifelse(p_week[1]==51,1,
+                     ifelse(p_week[1]==52,2,
+                            ifelse(p_week[1]==53,3,p_week[3])))
+  p_week[2] = ifelse(p_week[1]==52,1,
+                     ifelse(p_week[1]==53,2,p_week[2]))
+  p_week[1] = ifelse(p_week[1]==53,1,p_week[1])
+
+  data_point$pred_week = p_week # Add the prediction week for plotting reference
+  week = ifelse(i %in%c(1:10),42+i,-10+i)
+  data_point$week = rep(week,length(data_point$Location))
   datas_point = rbind(datas_point, data_point) 
   data_seas = data[data$Location == "US National"&
                       data$Target %in% c("Season onset","Season peak week","Season peak percentage"),]
-  data_seas$week = rep(42+i,length(data_seas$Location))
+  data_seas$week = rep(week,length(data_seas$Location))
   datas_seas = rbind(datas_seas, data_seas)
 }
 
 
 DF1 = DF %>% filter(hyear==2016&hweek>=40|hyear==2017)
 DF1$plot_week = c(1:length(DF1$hweek)) # Create a dummy variable so the weeks can plotted chronologically, then plot without axis and add labels manually after
-datas_point$plot_week = ifelse(datas_point$week%in%c(43:52),datas_point$pred_week-39,datas_point$pred_week+13) # This is to make sure that the actual week is aligning with the plotted week
+datas_point$plot_week = ifelse(datas_point$pred_week%in%c(43:52),datas_point$pred_week-39,datas_point$pred_week+13) # This is to make sure that the actual week is aligning with the plotted week
 datas_seas$plot_week = ifelse(datas_seas$Value%in%c(43:52),datas_seas$Value-39,datas_seas$Value+13) # This is to make sure that the actual week is aligning with the plotted week
 
 DF2 = DF1[!is.na(DF1$x.weighted.ili),]
@@ -63,10 +76,12 @@ lines(DF2$plot_week, DF2$x.weighted.ili-0.5,lty=3,col="red")
 lines(DF2$plot_week, DF2$x.weighted.ili+0.5,lty=3,col="red")
 lines(DF2$plot_week, DF2$x.weighted.ili,lwd=6)
 for(i in 1:length(unique(datas_point$week))){ # Plot for each prediction week the 4 mean point predictions
-  plot = datas_point[datas_point$week==i+42,]
+  ref = ifelse(i%in%c(1:10),i+42,i-10)
+  print(ref)
+  plot = datas_point[datas_point$week==ref,]
   points(plot$plot_week,plot$Value, col=cols[(i+k)*3], pch=16)
   lines(plot$plot_week,plot$Value, col=cols[(i+k)*3], pch=16)
-  text(x=42, y=8-i+0.8,labels = paste("week",i+42), col=cols[(i+k)*3])
+  text(x=42, y=8-i+0.8,labels = paste("week",ref), col=cols[(i+k)*3])
 }
 for(i in 1:length(unique(datas_seas$week))){ # Plot for each prediction week the mean season targets
   for(f in c("Season onset","Season peak week")){
@@ -79,8 +94,8 @@ for(i in 1:length(unique(datas_seas$week))){ # Plot for each prediction week the
 legend(x = 1, y= 8, pch=c(1,2), legend=c("Season onset", "Season peak week"))
 dev.off()
 
-gsub("2016-","",most_current_week)
-current_pred =as.numeric(gsub("2016-","",most_current_week))
+gsub("2017-","",most_current_week)
+current_pred =as.numeric(gsub("2017-","",most_current_week))
 
 # Create seperate data frame for season onset and season peak week for plotting
 DF2 = datas_seas %>% filter(Target=="Season onset"&Type!="Point"&
@@ -113,7 +128,7 @@ g_intens = ggplot(DF4, aes(x=Bin_start_incl_plot,y=Value,col=factor(week),group=
   guides(col=guide_legend(title="Prediction week"))
 
 # Save season targets
-pdf("./Forecasts/Season_predictions.pdf", width=8, height=10)
+pdf("./Forecasts/Season_predictions.pdf", width=8, height=15)
 multiplot(g_onset,g_peak,g_intens)
 dev.off()
 
@@ -130,21 +145,21 @@ peak_cur = ggplot(DF3[DF3$week==current_pred,], aes(x=Bin_start_incl_plot,y=Valu
 
 multiplot(onset_cur,peak_cur)
 
-par(mfrow=c(1,1))
-plot(DF1$plot_week, DF1$x.weighted.ili, ylim=c(0,8), axes=F, ylab="Cases",xlab="Week",type="l",
-     lwd=6, main=paste("National Influenza Forecast 2016/2017\n prediction week",current_pred),
-     col="grey")
-lines(rep(2.2, 52), lty=2) # Plot treshold
-axis(2, at=0:8, labels=c(0:8))
-axis(1, at=1:length(DF1$hweek), labels=DF1$hweek)
-plot = datas_point[datas_point$week==length(ldf)+42,]
-points(plot$plot_week,plot$Value, col="red", pch=16)
-lines(plot$plot_week,plot$Value, col="red", pch=16)
-for(f in c("Season onset","Season peak week")){
-  p = ifelse(f=="Season onset",1,2)
-  plot = datas_seas[datas_seas$week==length(ldf)+42&datas_seas$Target==f&datas_seas$Type=="Point",]
-  intense = datas_seas[datas_seas$week==length(ldf)+42&datas_seas$Target=="Season peak percentage"&datas_seas$Type=="Point",]
-  points(x=plot$plot_week,y=intense$Value, col=p+2, pch=p)
-}
-legend(x = 1, y= 8, pch=c(1,2), legend=c("Season onset", "Season peak week"))
-
+# par(mfrow=c(1,1))
+# plot(DF1$plot_week, DF1$x.weighted.ili, ylim=c(0,8), axes=F, ylab="Cases",xlab="Week",type="l",
+#      lwd=6, main=paste("National Influenza Forecast 2016/2017\n prediction week",current_pred),
+#      col="grey")
+# lines(rep(2.2, 52), lty=2) # Plot treshold
+# axis(2, at=0:8, labels=c(0:8))
+# axis(1, at=1:length(DF1$hweek), labels=DF1$hweek)
+# plot = datas_point[datas_point$week==length(ldf)+42,]
+# points(plot$plot_week,plot$Value, col="red", pch=16)
+# lines(plot$plot_week,plot$Value, col="red", pch=16)
+# for(f in c("Season onset","Season peak week")){
+#   p = ifelse(f=="Season onset",1,2)
+#   plot = datas_seas[datas_seas$week==length(ldf)+42&datas_seas$Target==f&datas_seas$Type=="Point",]
+#   intense = datas_seas[datas_seas$week==length(ldf)+42&datas_seas$Target=="Season peak percentage"&datas_seas$Type=="Point",]
+#   points(x=plot$plot_week,y=intense$Value, col=p+2, pch=p)
+# }
+# legend(x = 1, y= 8, pch=c(1,2), legend=c("Season onset", "Season peak week"))
+# 

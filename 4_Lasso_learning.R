@@ -115,7 +115,7 @@ for (pred.tpoint in pred_vector){
   # train LASSO
   
   h_weights = which(DF$weekname==last.prediction) - which(DF$weekname=="2016-40") # Put higher weights on last h_weight observations
-  weight_increase <- 5
+  weight_increase <- 1
   # fit LASSO regression
   
   # 1-week prediction

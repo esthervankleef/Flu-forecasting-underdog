@@ -63,7 +63,8 @@ missing.vals <- which(is.na(usflu_allyears$cases))
 last.miss.val <- missing.vals[length(missing.vals)]
 #
 last.prediction <- dim(usflu_allyears)[1] 
-most_current_week <- paste(usflu$year[last.prediction],usflu$week[last.prediction],sep="-")
+most_current_week <- paste(usflu$year[last.prediction],str_pad(usflu$week[last.prediction], 2, pad = "0"),sep="-")
+#most_current_week <- paste(usflu$year[last.prediction],usflu$week[last.prediction],sep="-")
 most_current_week_int <- usflu$week[last.prediction]
 
 usflu <- usflu_allyears[(last.miss.val + 1):last.prediction,]

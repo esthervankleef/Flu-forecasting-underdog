@@ -12,12 +12,12 @@ library(data.table); library(dplyr)
 # Load data
 clim <- data.frame(fread('https://www.ncdc.noaa.gov/temp-and-precip/us-weekly/wkly.csv'))
 
-forecast_week = length(clim$weekEnding)-length(c((1:52),c(1:53),c(1:52)))
+forecast_week = length(clim$weekEnding)-length(c((1:52),c(1:53),c(1:52),c(1:52)))
 
 # Add week number, year 2014 has 53 weeks
-clim$week = c(c(1:52),c(1:53),c(1:52),c(1:forecast_week)) 
+clim$week = c(c(1:52),c(1:53),c(1:52),c(1:52),c(1:forecast_week)) 
 clim$week = ifelse(clim$week %in%c(1:9), paste0("0",clim$week), clim$week) # adds 0 to single numbers
-clim$year = c(rep("2013",52),rep("2014",53),rep("2015",52),rep("2016",forecast_week)) # idem
+clim$year = c(rep("2013",52),rep("2014",53),rep("2015",52),rep("2016",52),rep("2017",forecast_week)) # idem
 
 # Create weekname variable
 clim$weekname = paste0(clim$year, "-",clim$week)
