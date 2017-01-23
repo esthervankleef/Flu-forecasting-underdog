@@ -223,7 +223,7 @@ dat_coefs
 # evaluate
 p = which(DF$weekname==last.prediction) - which(DF$weekname==first.prediction)-4
 p.last = which(DF$weekname==last.prediction) - which(DF$weekname=="2016-40")
-weights = 10
+weights = 1
 # LASSO MSE - generates for each seperate value of s an mse
 mse_LA = data.frame(cbind(s = unique(su), mse1w = rep(NA,length(su)),
                           mse2w = rep(NA,length(su)),mse3w = rep(NA,length(su)),
